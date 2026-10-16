@@ -6,6 +6,7 @@ import { hostOf, shortDate } from "@/lib/format";
 import type { Alert, DocumentRow, JobMatch } from "@/lib/types";
 import { Flash } from "@/components/Flash";
 import { StatusSelect } from "@/components/StatusSelect";
+import { FindJobsButton } from "@/components/FindJobsButton";
 
 export const metadata: Metadata = { title: "Job log" };
 
@@ -46,7 +47,10 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
           <span className="eyebrow">Every job you&apos;ve been sent or saved</span>
           <h1>Job log</h1>
         </div>
-        <Link className="btn btn-accent" href="/jobs/new">+ Add a job by link</Link>
+        <div className="row">
+          <FindJobsButton className="btn btn-outline" compact />
+          <Link className="btn btn-accent" href="/jobs/new">+ Add a job by link</Link>
+        </div>
       </div>
 
       <form className="filters" method="get">

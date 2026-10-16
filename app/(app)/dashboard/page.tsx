@@ -8,6 +8,8 @@ import { StatusSelect } from "@/components/StatusSelect";
 import { StatTile } from "@/components/charts/StatTile";
 import { FunnelBars } from "@/components/charts/FunnelBars";
 import { WeeklyColumns } from "@/components/charts/WeeklyColumns";
+import { SwipeDeck, type DeckJob } from "@/components/SwipeDeck";
+import { isDemoEmail } from "@/lib/demo";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -18,9 +20,10 @@ const WEEK = 7 * 86400 * 1000;
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ flash?: string }> }) {
   const { flash } = await searchParams;
-  const { supabase, profile } = await requireProfile();
+  const { supabase, profile, user } = await requireProfile();
+  const demo = isDemoEmail(user.email);
 
-  const [{ data: rows }, { data: alerts }, { count: docCount }, { data: recent }] = await Promise.all([
+  const [{ data: rows }, { data: alerts }, { count: docCount }, { data: recent }, { data: fresh }] = await Promise.all([
     supabase.from("job_matches").select("status, found_at").limit(5000).returns<Pick<JobMatch, "status" | "found_at">[]>(),
     supabase.from("alerts").select("*").order("created_at", { ascending: false }).returns<Alert[]>(),
     supabase.from("documents").select("id", { count: "exact", head: true }),
@@ -31,6 +34,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .order("id", { ascending: true })
       .limit(6)
       .returns<Pick<JobMatch, "id" | "title" | "company" | "location" | "job_url" | "found_at" | "status">[]>(),
+    supabase
+      .from("job_matches")
+      .select("id, alert_id, title, company, location, salary, site, is_remote, date_posted, found_at, job_url, description")
+      .eq("status", "new")
+      .order("found_at", { ascending: false })
+      .order("id", { ascending: true })
+      .limit(40)
+      .returns<Pick<JobMatch, "id" | "alert_id" | "title" | "company" | "location" | "salary" | "site" | "is_remote" | "date_posted" | "found_at" | "job_url" | "description">[]>(),
   ]);
 
   const jobs = rows ?? [];
@@ -58,6 +69,26 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const diff = thisWeek - lastWeek;
 
   const alertList = alerts ?? [];
+  const roleById = new Map(alertList.map((a) => [a.id, a.role]));
+  const snippetOf = (d: string | null) => {
+    if (!d) return null;
+    const clean = d.replace(/\\([\\`*_{}[\]()#+\-.!>|~])/g, "$1").replace(/[*_#>]+/g, "").replace(/\s+/g, " ").trim();
+    return clean.length > 300 ? `${clean.slice(0, 300).replace(/\s+\S*$/, "")}…` : clean;
+  };
+  const deckJobs: DeckJob[] = (fresh ?? []).map((j) => ({
+    id: j.id,
+    title: j.title,
+    company: j.company,
+    location: j.location,
+    salary: j.salary,
+    site: j.site,
+    is_remote: j.is_remote,
+    date_posted: j.date_posted,
+    found_at: j.found_at,
+    job_url: j.job_url,
+    snippet: snippetOf(j.description),
+    alertRole: j.alert_id ? roleById.get(j.alert_id) ?? null : null,
+  }));
   const activeAlerts = alertList.filter((a) => a.active);
   const hasChannel = Boolean(profile?.telegram_chat_id || profile?.discord_webhook_url);
   const checklist = [
@@ -79,11 +110,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>
         <div className="row">
           <Link className="btn btn-outline" href="/jobs/new">+ Add a job</Link>
-          <Link className="btn btn-accent" href="/onboarding">+ New alert</Link>
+          <Link className="btn btn-outline" href="/onboarding">+ New alert</Link>
         </div>
       </div>
 
-      <div className="kpi-row stagger">
+      {alertList.length > 0 ? (
+        <div className="panel deck-panel">
+          <SwipeDeck jobs={deckJobs} demo={demo} />
+        </div>
+      ) : (
+        <div className="panel deck-panel empty-state">
+          <h2>Set up an alert to start finding jobs</h2>
+          <p className="muted">Tell us a role and a city. Then hit “Find jobs now” and swipe through matches.</p>
+          <Link className="btn btn-accent" href="/onboarding">Create my first alert</Link>
+        </div>
+      )}
+
+      <div className="kpi-row stagger" style={{ marginTop: 20 }}>
         <StatTile
           label="Matches this week"
           value={thisWeek}
@@ -178,3 +221,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     </>
   );
 }
+
+// "Find jobs now" searches several alerts; give the server action room.
+export const maxDuration = 60;

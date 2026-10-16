@@ -1,0 +1,86 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireUser } from "@/lib/auth";
+import { DEMO_MESSAGE, isDemoEmail } from "@/lib/demo";
+import { searchLinkedIn } from "@/lib/linkedin";
+import { matchesAlert } from "@/lib/matching";
+import type { Alert } from "@/lib/types";
+
+export type FindState = { ok: boolean; found?: number; searched?: number; message: string };
+
+const COOLDOWN_MS = 2 * 60 * 1000;
+
+// "Find jobs now": search LinkedIn for every active alert right away and drop
+// new matches straight into the log (and the swipe deck).
+export async function findJobsNow(): Promise<FindState> {
+  const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) return { ok: false, message: DEMO_MESSAGE };
+
+  const { data: alerts } = await supabase
+    .from("alerts")
+    .select("id, role, city, country, work_mode, min_salary, exclude_keywords, last_checked_at")
+    .eq("active", true)
+    .returns<Pick<Alert, "id" | "role" | "city" | "country" | "work_mode" | "min_salary" | "exclude_keywords" | "last_checked_at">[]>();
+  if (!alerts?.length) return { ok: false, message: "Create an alert first, then we can search for you." };
+
+  const now = Date.now();
+  const due = alerts.filter((a) => !a.last_checked_at || now - new Date(a.last_checked_at).getTime() > COOLDOWN_MS);
+  if (!due.length) return { ok: true, found: 0, searched: 0, message: "We just searched — give it a couple of minutes before searching again." };
+
+  const { data: known } = await supabase.from("job_matches").select("job_url").limit(5000);
+  const seen = new Set((known ?? []).map((r) => r.job_url as string));
+
+  let found = 0;
+  let blocked = 0;
+  // At most 3 alerts searched at once, to stay under LinkedIn's burst limits.
+  const queue = due.slice(0, 10);
+  const runOne = async (a: (typeof queue)[number]) => {
+    // Look back further on the first search so a brand-new alert fills up.
+    const hoursOld = a.last_checked_at ? 72 : 168;
+    const res = await searchLinkedIn({ role: a.role, city: a.city, country: a.country, workMode: a.work_mode, hoursOld });
+    if (res.blocked) blocked++;
+    const keep = res.jobs.filter((j) => matchesAlert(a, j, seen)).slice(0, 40);
+    keep.forEach((j) => seen.add(j.job_url));
+    if (!keep.length) return;
+    const { data, error } = await supabase.rpc("save_found_jobs", { p_alert_id: a.id, p_jobs: keep });
+    if (!error && typeof data === "number") found += data;
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(3, queue.length) }, async () => {
+      for (let a = queue.shift(); a; a = queue.shift()) await runOne(a);
+    }),
+  );
+
+  revalidatePath("/dashboard");
+  revalidatePath("/jobs");
+  if (found === 0 && blocked === due.length) {
+    return { ok: false, found: 0, searched: due.length, message: "LinkedIn is busy right now. Try again in a minute — your scheduled scan will also catch up." };
+  }
+  return {
+    ok: true,
+    found,
+    searched: due.length,
+    message: found
+      ? `Found ${found} new job${found === 1 ? "" : "s"} across ${due.length} alert${due.length === 1 ? "" : "s"}.`
+      : "No new matches since your last search. We'll keep watching.",
+  };
+}
+
+export type SwipeResult = { ok: boolean; demo?: boolean; message?: string };
+
+// Swipe right = keep (saved), left = discard (not interested), undo = back to new.
+export async function swipeJob(id: string, decision: "save" | "discard" | "undo"): Promise<SwipeResult> {
+  const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) return { ok: false, demo: true, message: DEMO_MESSAGE };
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Unknown job." };
+  const status = decision === "save" ? "saved" : decision === "discard" ? "not_interested" : "new";
+  const { error } = await supabase.from("job_matches").update({ status }).eq("id", id);
+  if (error) return { ok: false, message: "Couldn't save that swipe. Please try again." };
+  return { ok: true };
+}
+
+export async function refreshDashboard() {
+  revalidatePath("/dashboard");
+  revalidatePath("/jobs");
+}

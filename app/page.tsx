@@ -24,8 +24,14 @@ const TICKER = [
   "Marketing Coordinator · Montreal",
 ];
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; error_code?: string; error_description?: string }>;
+}) {
+  const params = await searchParams;
   const [{ user }, auth] = await Promise.all([getUser(), getAuthSettings()]);
+  const linkProblem = params.error_code || params.error;
   const cta = user ? (
     <Link className="btn btn-google btn-glow" href="/dashboard">Go to my dashboard →</Link>
   ) : auth.google ? (
@@ -36,6 +42,18 @@ export default async function Home() {
 
   return (
     <>
+      {linkProblem && (
+        <div className="wrap" style={{ paddingTop: 20 }}>
+          <div className="notice notice-warn flash row between">
+            <span>
+              {params.error_code === "otp_expired"
+                ? "That email link has expired or was already used. If you already confirmed your email, just sign in."
+                : "That sign-in link didn't work. Please sign in again."}
+            </span>
+            {!user && <Link className="btn btn-dark btn-sm" href="/login">Sign in</Link>}
+          </div>
+        </div>
+      )}
       <section className="hero wrap">
         <div className="hero-grid">
           <div>
