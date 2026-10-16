@@ -1,0 +1,71 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/auth";
+import { hostOf, shortDate, timeAgo } from "@/lib/format";
+import type { DocumentRow, JobMatch } from "@/lib/types";
+import { Flash } from "@/components/Flash";
+import { SubmitButton } from "@/components/SubmitButton";
+import { deleteJob } from "../actions";
+import { TrackerForm, DescriptionPanel } from "./JobForms";
+
+export const metadata: Metadata = { title: "Job" };
+
+export default async function JobPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ flash?: string }>;
+}) {
+  const { id } = await params;
+  const { flash } = await searchParams;
+  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  const { supabase } = await requireUser();
+  const [{ data: job }, { data: docs }] = await Promise.all([
+    supabase.from("job_matches").select("*").eq("id", id).maybeSingle<JobMatch>(),
+    supabase.from("documents").select("id, name, kind").order("created_at", { ascending: false }).returns<Pick<DocumentRow, "id" | "name" | "kind">[]>(),
+  ]);
+  if (!job) notFound();
+  let alertRole: string | null = null;
+  if (job.alert_id) {
+    const { data } = await supabase.from("alerts").select("role").eq("id", job.alert_id).maybeSingle();
+    alertRole = data?.role ?? null;
+  }
+
+  const resumes = (docs ?? []).filter((d) => d.kind === "resume");
+  const covers = (docs ?? []).filter((d) => d.kind === "cover_letter");
+
+  return (
+    <>
+      <Flash code={flash} />
+      <p className="small" style={{ marginBottom: 14 }}>
+        <Link href="/jobs" className="linklike">← Job log</Link>
+      </p>
+      <div className="page-head">
+        <div style={{ minWidth: 0 }}>
+          <span className="eyebrow">{job.source === "alert" ? `Found by “${alertRole ?? "an alert"}”` : "Added by you"} · {timeAgo(job.found_at)}</span>
+          <h1>{job.title ?? hostOf(job.job_url)}</h1>
+          <p className="muted" style={{ marginTop: 6 }}>
+            {[job.company, job.location, job.salary, job.date_posted ? `posted ${shortDate(job.date_posted)}` : null].filter(Boolean).join(" · ") || hostOf(job.job_url)}
+          </p>
+        </div>
+        <a className="btn btn-accent" href={job.job_url} target="_blank" rel="noopener noreferrer">Open posting ↗</a>
+      </div>
+
+      <div className="dash-grid">
+        <DescriptionPanel id={job.id} description={job.description} />
+        <div className="stack">
+          <TrackerForm job={job} resumes={resumes} covers={covers} />
+          <div className="panel">
+            <span className="eyebrow">Danger zone</span>
+            <form action={deleteJob} style={{ marginTop: 10 }}>
+              <input type="hidden" name="id" value={job.id} />
+              <SubmitButton className="btn btn-danger btn-sm" pendingText="Removing…">Remove from my log</SubmitButton>
+            </form>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
