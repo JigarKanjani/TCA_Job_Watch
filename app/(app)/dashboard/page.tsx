@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
-import { hostOf, placeLabel, timeAgo } from "@/lib/format";
+import { placeLabel, timeAgo } from "@/lib/format";
 import type { Alert, JobMatch } from "@/lib/types";
 import { Flash } from "@/components/Flash";
-import { StatusSelect } from "@/components/StatusSelect";
 import { StatTile } from "@/components/charts/StatTile";
 import { FunnelBars } from "@/components/charts/FunnelBars";
 import { WeeklyColumns } from "@/components/charts/WeeklyColumns";
-import { SwipeDeck, type DeckJob } from "@/components/SwipeDeck";
+import { TriageLauncher, type DeckJob } from "@/components/Triage";
+import { ApplyBoard, type BoardJob } from "@/components/ApplyBoard";
 import { isDemoEmail } from "@/lib/demo";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -17,31 +17,43 @@ const APPLIED = new Set(["applied", "interviewing", "offer", "rejected", "withdr
 const INTERVIEWED = new Set(["interviewing", "offer"]);
 const RESPONDED = new Set(["interviewing", "offer", "rejected"]);
 const WEEK = 7 * 86400 * 1000;
+const BOARD_COLS = "id, title, company, location, salary, job_url, found_at, status, updated_at";
+type BoardRow = Omit<BoardJob, "apply_by"> & { status: string; updated_at: string; apply_by?: string | null };
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ flash?: string }> }) {
   const { flash } = await searchParams;
   const { supabase, profile, user } = await requireProfile();
   const demo = isDemoEmail(user.email);
 
-  const [{ data: rows }, { data: alerts }, { count: docCount }, { data: recent }, { data: fresh }] = await Promise.all([
+  // The To apply / Maybe board. apply_by arrives with the triage migration;
+  // until then the board loads without Super Apply timers.
+  const boardQuery = (cols: string) =>
+    supabase
+      .from("job_matches")
+      .select(cols)
+      .in("status", ["saved", "maybe"])
+      .order("updated_at", { ascending: false })
+      .limit(120)
+      .returns<BoardRow[]>();
+  const loadBoard = async () => {
+    const withTimers = await boardQuery(`${BOARD_COLS}, apply_by`);
+    return withTimers.error ? (await boardQuery(BOARD_COLS)).data : withTimers.data;
+  };
+
+  const [{ data: rows }, { data: alerts }, { count: docCount }, { data: fresh, count: freshCount }, board, { count: archived }] = await Promise.all([
     supabase.from("job_matches").select("status, found_at").limit(5000).returns<Pick<JobMatch, "status" | "found_at">[]>(),
     supabase.from("alerts").select("*").order("created_at", { ascending: false }).returns<Alert[]>(),
     supabase.from("documents").select("id", { count: "exact", head: true }),
     supabase
       .from("job_matches")
-      .select("id, title, company, location, job_url, found_at, status")
-      .order("found_at", { ascending: false })
-      .order("id", { ascending: true })
-      .limit(6)
-      .returns<Pick<JobMatch, "id" | "title" | "company" | "location" | "job_url" | "found_at" | "status">[]>(),
-    supabase
-      .from("job_matches")
-      .select("id, alert_id, title, company, location, salary, site, is_remote, date_posted, found_at, job_url, description")
+      .select("id, alert_id, title, company, location, salary, site, is_remote, date_posted, found_at, job_url, description", { count: "exact" })
       .eq("status", "new")
       .order("found_at", { ascending: false })
       .order("id", { ascending: true })
       .limit(40)
       .returns<Pick<JobMatch, "id" | "alert_id" | "title" | "company" | "location" | "salary" | "site" | "is_remote" | "date_posted" | "found_at" | "job_url" | "description">[]>(),
+    loadBoard(),
+    supabase.from("job_matches").select("id", { count: "exact", head: true }).eq("status", "not_interested"),
   ]);
 
   const jobs = rows ?? [];
@@ -89,7 +101,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     snippet: snippetOf(j.description),
     alertRole: j.alert_id ? roleById.get(j.alert_id) ?? null : null,
   }));
-  const activeAlerts = alertList.filter((a) => a.active);
+  const boardRows = board ?? [];
+  const toBoard = (j: BoardRow): BoardJob => ({
+    id: j.id, title: j.title, company: j.company, location: j.location, salary: j.salary,
+    job_url: j.job_url, found_at: j.found_at, apply_by: j.apply_by ?? null,
+  });
+  // Super Apply first (most urgent timer on top), then To apply, then Maybe.
+  const superJobs = boardRows
+    .filter((j) => j.status === "saved" && j.apply_by)
+    .sort((a, b) => new Date(a.apply_by!).getTime() - new Date(b.apply_by!).getTime())
+    .map(toBoard);
+  const toApply = boardRows.filter((j) => j.status === "saved" && !j.apply_by).map(toBoard);
+  const maybe = boardRows.filter((j) => j.status === "maybe").map(toBoard);
+  const showBoard = boardRows.length > 0 || (archived ?? 0) > 0;
   const hasChannel = Boolean(profile?.telegram_chat_id || profile?.discord_webhook_url);
   const checklist = [
     { done: alertList.length > 0, text: "Create your first alert", href: "/onboarding" },
@@ -115,15 +139,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </div>
 
       {alertList.length > 0 ? (
-        <div className="panel deck-panel">
-          <SwipeDeck jobs={deckJobs} demo={demo} />
-        </div>
+        <TriageLauncher jobs={deckJobs} total={freshCount ?? deckJobs.length} demo={demo} loginStamp={user.last_sign_in_at ?? "session"} />
       ) : (
         <div className="panel deck-panel empty-state">
           <h2>Set up an alert to start finding jobs</h2>
           <p className="muted">Tell us a role and a city. Then hit “Find jobs now” and swipe through matches.</p>
           <Link className="btn btn-accent" href="/onboarding">Create my first alert</Link>
         </div>
+      )}
+
+      {showBoard && (
+        <ApplyBoard
+          superJobs={superJobs}
+          toApply={toApply}
+          maybe={maybe}
+          counts={{ toApply: toApply.length, maybe: maybe.length }}
+          archived={archived ?? 0}
+        />
       )}
 
       <div className="kpi-row stagger" style={{ marginTop: 20 }}>
@@ -153,29 +185,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 { label: "Offer", value: offers },
               ]}
             />
-          </div>
-          <div className="panel">
-            <div className="row between" style={{ marginBottom: 6 }}>
-              <span className="eyebrow">Latest matches</span>
-              <Link className="linklike small" href="/jobs">Open job log →</Link>
-            </div>
-            {(recent ?? []).length === 0 ? (
-              <p className="muted small empty">
-                No matches yet. {activeAlerts.length ? "Your alerts are scanning — new roles show up here within about two hours." : "Create an alert to start."}
-              </p>
-            ) : (
-              <ul className="recent-list">
-                {(recent ?? []).map((j) => (
-                  <li key={j.id}>
-                    <div className="info">
-                      <Link href={`/jobs/${j.id}`}><b>{j.title ?? hostOf(j.job_url)}</b></Link>
-                      <span className="small muted">{[j.company, j.location].filter(Boolean).join(" · ")} · {timeAgo(j.found_at)}</span>
-                    </div>
-                    <StatusSelect id={j.id} status={j.status} />
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         </div>
 

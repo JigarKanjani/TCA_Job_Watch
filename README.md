@@ -9,11 +9,11 @@ matches from LinkedIn + Indeed by **email, Telegram or Discord**. Every match la
 |---|---|---|
 | Website + API | Vercel | Next.js 15 (App Router), React 19 |
 | Auth + DB + files | Supabase (`tca-job-watch`, ca-central-1) | Postgres + RLS, Auth, Storage |
-| Scraper + delivery | GitHub Actions, hourly | Python + [JobSpy](https://github.com/speedyapply/JobSpy) |
+| Scraper + delivery | GitHub Actions, every 30 min | Python + [JobSpy](https://github.com/speedyapply/JobSpy) |
 
 ## How it fits together
 ```
-Browser ──> Next.js (Vercel) ──RLS──> Supabase  <──secret-gated RPCs── worker (GitHub Actions, hourly)
+Browser ──> Next.js (Vercel) ──RLS──> Supabase  <──secret-gated RPCs── worker (GitHub Actions, every 30 min)
                      │                                                   │
           Telegram webhook (/api/telegram/webhook)              scrape due alerts (JobSpy)
                                                                 deliver queued matches in-window

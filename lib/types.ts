@@ -50,6 +50,8 @@ export type JobMatch = {
   notified_at: string | null;
   status: Status;
   applied_at: string | null;
+  /** Super Apply deadline (24 hours after it was set). */
+  apply_by?: string | null;
   resume_doc_id: string | null;
   cover_doc_id: string | null;
   notes: string | null;

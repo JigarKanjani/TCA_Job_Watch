@@ -22,17 +22,21 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
     .order("found_at", { ascending: false })
       .order("id", { ascending: true })
     .limit(200);
+  const archive = params.status === "not_interested";
   if (params.status && STATUSES.some((s) => s.value === params.status)) query = query.eq("status", params.status);
+  // Jobs you passed on live in the archive, not the main log.
+  else query = query.neq("status", "not_interested");
   if (params.alert) query = query.eq("alert_id", params.alert);
   if (params.q) {
     const q = params.q.replace(/[%,()]/g, " ").trim().slice(0, 80);
     if (q) query = query.or(`title.ilike.%${q}%,company.ilike.%${q}%,location.ilike.%${q}%`);
   }
 
-  const [{ data: jobs }, { data: alerts }, { data: docs }] = await Promise.all([
+  const [{ data: jobs }, { data: alerts }, { data: docs }, { count: archivedCount }] = await Promise.all([
     query.returns<JobMatch[]>(),
     supabase.from("alerts").select("id, role").returns<Pick<Alert, "id" | "role">[]>(),
     supabase.from("documents").select("id, name").returns<Pick<DocumentRow, "id" | "name">[]>(),
+    supabase.from("job_matches").select("id", { count: "exact", head: true }).eq("status", "not_interested"),
   ]);
   const alertName = new Map((alerts ?? []).map((a) => [a.id, a.role]));
   const docName = new Map((docs ?? []).map((d) => [d.id, d.name]));
@@ -44,8 +48,9 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
       <Flash code={params.flash} />
       <div className="page-head">
         <div>
-          <span className="eyebrow">Every job you&apos;ve been sent or saved</span>
-          <h1>Job log</h1>
+          <span className="eyebrow">{archive ? "Jobs you passed on" : "Every job you've been sent or saved"}</span>
+          <h1>{archive ? "Archive" : "Job log"}</h1>
+          {archive && <p className="muted small">Changed your mind? Set a job&apos;s stage back to To apply or Maybe.</p>}
         </div>
         <div className="row">
           <FindJobsButton className="btn btn-outline" compact />
@@ -56,7 +61,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
       <form className="filters" method="get">
         <input className="input" name="q" defaultValue={params.q ?? ""} placeholder="Search title, company, place" aria-label="Search" />
         <select className="input" name="status" defaultValue={params.status ?? ""} aria-label="Stage">
-          <option value="">All stages</option>
+          <option value="">All stages (except archive)</option>
           {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
         <select className="input" name="alert" defaultValue={params.alert ?? ""} aria-label="Alert">
@@ -65,13 +70,20 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
         </select>
         <button className="btn btn-dark btn-sm" type="submit">Filter</button>
         {filtered && <Link className="btn btn-ghost btn-sm" href="/jobs">Clear</Link>}
+        {!archive && (
+          <Link className="btn btn-ghost btn-sm archive-link" href="/jobs?status=not_interested">
+            🗄 Archive ({archivedCount ?? 0})
+          </Link>
+        )}
       </form>
 
       {list.length === 0 ? (
         <div className="panel empty-state">
-          <h2>{filtered ? "Nothing matches those filters" : "Your log is empty — for now"}</h2>
+          <h2>{archive ? "The archive is empty" : filtered ? "Nothing matches those filters" : "Your log is empty — for now"}</h2>
           <p className="muted">
-            {filtered
+            {archive
+              ? "Jobs you mark Not interested (swipe left) land here."
+              : filtered
               ? "Try a different stage or clear the filters."
               : "Jobs we send you land here automatically. You can also add any job by pasting its link."}
           </p>

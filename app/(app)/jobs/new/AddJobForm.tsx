@@ -25,7 +25,8 @@ export function AddJobForm() {
       <div className="field">
         <span className="label">Stage</span>
         <select name="status" className="input" defaultValue="saved" aria-label="Stage">
-          <option value="saved">Saved — thinking about it</option>
+          <option value="saved">To apply</option>
+          <option value="maybe">Maybe — thinking about it</option>
           <option value="applied">Applied already</option>
           <option value="interviewing">Interviewing</option>
         </select>

@@ -176,12 +176,12 @@ export default async function Home({
             {[
               ["Supply Chain Analyst", "Interviewing", "SC Resume v3"],
               ["Business Analyst", "Applied", "BA Resume v2"],
-              ["Procurement Specialist", "Saved", "—"],
+              ["Procurement Specialist", "To apply", "—"],
               ["Data Analyst", "Offer", "Data Resume v1"],
             ].map(([r, s, d], i) => (
               <div className="tm-row" key={r} style={{ animationDelay: `${i * 90}ms` }}>
                 <span>{r}</span>
-                <span className={`tm-stage st-${s.toLowerCase()}`}>{s}</span>
+                <span className={`tm-stage st-${s === "To apply" ? "saved" : s.toLowerCase()}`}>{s}</span>
                 <span className="muted">{d}</span>
               </div>
             ))}
@@ -190,7 +190,7 @@ export default async function Home({
             <span className="eyebrow">Built-in application tracker</span>
             <h2>Remember exactly what you sent, and where.</h2>
             <p>
-              Every job you&apos;re sent lands in your log automatically. Move it from Saved to Applied to Interviewing,
+              Every job you&apos;re sent lands in your log automatically. Swipe it into To apply, Maybe or the archive, move it on to Applied and Interviewing,
               note the resume and cover letter version you used, keep the full job description even after the posting
               disappears, and add any job from anywhere by pasting its link.
             </p>
@@ -221,7 +221,7 @@ export default async function Home({
             <div className="plan-price">{PRICING.pro.price}</div>
             <p className="muted">{PRICING.pro.blurb}</p>
             <ul className="plain-list">
-              <li>Instant alerts every couple of hours</li>
+              <li>Instant alerts about every 30 minutes</li>
               <li>Around-the-clock ☕ delivery window</li>
               <li>Bigger document library</li>
               <li>Priority on new features</li>
@@ -246,7 +246,7 @@ export default async function Home({
           </details>
           <details>
             <summary>How fast are the alerts?</summary>
-            <p>Searches run every couple of hours. Instant alerts go out as soon as a match is found inside one of your delivery windows; digests go out once a day or once a week.</p>
+            <p>Instant alerts are searched about every 30 minutes, and the first batch arrives the moment you create an alert. Matches go out inside your delivery windows; daily and weekly digests bundle everything into one message.</p>
           </details>
           <details>
             <summary>What does the tracker do?</summary>

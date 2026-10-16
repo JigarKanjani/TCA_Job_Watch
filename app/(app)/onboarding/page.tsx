@@ -49,3 +49,6 @@ export default async function OnboardingPage() {
     </div>
   );
 }
+
+// Creating an alert runs the first search and sends instant alerts right away.
+export const maxDuration = 60;

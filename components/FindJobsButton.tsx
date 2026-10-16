@@ -14,6 +14,8 @@ export function FindJobsButton({ className = "btn btn-accent", compact = false }
     start(async () => {
       const r = await findJobsNow();
       setResult(r);
+      // The dashboard opens the sorting pop-up when new jobs arrive.
+      if (r.found) window.dispatchEvent(new CustomEvent("jobwatch:found", { detail: r.found }));
       router.refresh();
     });
   }

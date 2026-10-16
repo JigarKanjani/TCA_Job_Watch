@@ -2,7 +2,7 @@ name: JobWatch worker
 
 on:
   schedule:
-    - cron: "23 * * * *"   # hourly: scrape what's due, deliver what's in-window
+    - cron: "23,53 * * * *"   # every 30 min: scrape what's due, deliver what's in-window
   workflow_dispatch:
     inputs:
       phase:

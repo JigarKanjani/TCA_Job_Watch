@@ -323,7 +323,7 @@ export function OnboardingWizard(props: Props) {
             {state.error && <p className="notice notice-err" role="alert">{state.error}</p>}
             <div className="wizard-foot">
               <button type="button" className="btn btn-ghost" onClick={() => go(4)}>← Back</button>
-              <SubmitButton className="btn btn-accent" pendingText="Saving…">Start watching</SubmitButton>
+              <SubmitButton className="btn btn-accent" pendingText="Finding your first matches…">Start watching</SubmitButton>
             </div>
           </form>
         )}

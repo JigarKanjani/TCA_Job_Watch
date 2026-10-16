@@ -58,7 +58,8 @@ export const DEFAULT_WINDOWS: WindowId[] = ["workday", "weeknight", "weekend_day
 
 export const STATUSES = [
   { value: "new", label: "New" },
-  { value: "saved", label: "Saved" },
+  { value: "saved", label: "To apply" },
+  { value: "maybe", label: "Maybe" },
   { value: "applied", label: "Applied" },
   { value: "interviewing", label: "Interviewing" },
   { value: "offer", label: "Offer" },

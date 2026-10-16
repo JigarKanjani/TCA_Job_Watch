@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-JobWatch worker — runs hourly on GitHub Actions.
+JobWatch worker — runs every 30 minutes on GitHub Actions.
 
 Phase 1 (scrape):  alerts that are due for a fresh search are grouped by
                    identical search, scraped once with JobSpy (LinkedIn +

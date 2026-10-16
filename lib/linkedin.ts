@@ -1,7 +1,7 @@
 import "server-only";
 
 // Fast on-demand search against LinkedIn's public job-search pages (the same
-// source the hourly JobSpy worker uses). Used by "Find jobs now", so it must
+// source the scheduled JobSpy worker uses). Used by "Find jobs now", so it must
 // finish in a few seconds: three result pages fetched in parallel.
 
 export type FoundJob = {

@@ -1,5 +1,6 @@
 const MESSAGES: Record<string, { kind: "ok" | "err"; text: string }> = {
-  alert_created: { kind: "ok", text: "Alert saved. Your first matches show up here within about two hours." },
+  alert_created: { kind: "ok", text: "Alert saved. We're watching. New matches show up here and in your alerts as soon as they're posted." },
+  alert_created_found: { kind: "ok", text: "Alert saved and your first matches are in. Sort them now; new ones arrive automatically." },
   alert_deleted: { kind: "ok", text: "Alert deleted." },
   password_updated: { kind: "ok", text: "Password updated." },
   job_added: { kind: "ok", text: "Job added to your log." },

@@ -69,14 +69,45 @@ export async function findJobsNow(): Promise<FindState> {
 
 export type SwipeResult = { ok: boolean; demo?: boolean; message?: string };
 
-// Swipe right = keep (saved), left = discard (not interested), undo = back to new.
-export async function swipeJob(id: string, decision: "save" | "discard" | "undo"): Promise<SwipeResult> {
+// Swipe/triage decisions and the dashboard's quick moves:
+//   apply → "To apply" (saved)      super → To apply + a 24-hour apply-by timer
+//   maybe → Maybe pile              discard → Not interested (archived)
+//   applied → Applied               unsuper → drop the timer, stay in To apply
+//   undo → back to New (redo the decision)
+export type Move = "apply" | "super" | "maybe" | "discard" | "applied" | "unsuper" | "undo";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SCHEMA_MISSING = new Set(["PGRST204", "42703", "23514"]);
+const NEEDS_UPDATE = "Super Apply and Maybe need a one-time database update (see the README). Everything else works.";
+
+export async function moveJob(id: string, move: Move): Promise<SwipeResult> {
   const { supabase, user } = await requireUser();
   if (isDemoEmail(user.email)) return { ok: false, demo: true, message: DEMO_MESSAGE };
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Unknown job." };
-  const status = decision === "save" ? "saved" : decision === "discard" ? "not_interested" : "new";
-  const { error } = await supabase.from("job_matches").update({ status }).eq("id", id);
-  if (error) return { ok: false, message: "Couldn't save that swipe. Please try again." };
+
+  const patch: Record<string, unknown> = {};
+  if (move === "apply") Object.assign(patch, { status: "saved", apply_by: null });
+  if (move === "super") Object.assign(patch, { status: "saved", apply_by: new Date(Date.now() + DAY_MS).toISOString() });
+  if (move === "unsuper") Object.assign(patch, { apply_by: null });
+  if (move === "maybe") Object.assign(patch, { status: "maybe", apply_by: null });
+  if (move === "discard") Object.assign(patch, { status: "not_interested", apply_by: null });
+  if (move === "undo") Object.assign(patch, { status: "new", apply_by: null });
+  if (move === "applied") {
+    patch.status = "applied";
+    const { data } = await supabase.from("job_matches").select("applied_at").eq("id", id).single();
+    if (!data?.applied_at) patch.applied_at = new Date().toISOString().slice(0, 10);
+  }
+  if (!Object.keys(patch).length) return { ok: false, message: "Unknown action." };
+
+  let { error } = await supabase.from("job_matches").update(patch).eq("id", id);
+  // Before the triage migration runs there is no apply_by column or Maybe
+  // stage; plain moves still work without the timer.
+  if (error && SCHEMA_MISSING.has(error.code ?? "")) {
+    if (move === "super" || move === "maybe" || move === "unsuper") return { ok: false, message: NEEDS_UPDATE };
+    delete patch.apply_by;
+    ({ error } = await supabase.from("job_matches").update(patch).eq("id", id));
+  }
+  if (error) return { ok: false, message: "Couldn't save that. Please try again." };
   return { ok: true };
 }
 

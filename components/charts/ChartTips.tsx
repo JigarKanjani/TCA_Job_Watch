@@ -20,9 +20,12 @@ export function ChartTips({ children, className = "" }: { children: React.ReactN
       labelEl.textContent = mark.dataset.tipLabel ?? "";
       const box = root!.getBoundingClientRect();
       const m = mark.getBoundingClientRect();
-      const px = (x ?? m.left + m.width / 2) - box.left;
-      const py = (y ?? m.top) - box.top;
-      tip!.style.left = `${Math.min(Math.max(px, 60), box.width - 60)}px`;
+      // Rects and pointer coordinates are in screen pixels; CSS offsets are
+      // scaled by the page zoom (175% on desktop), so convert back.
+      const z = parseFloat(getComputedStyle(document.documentElement).zoom || "1") || 1;
+      const px = ((x ?? m.left + m.width / 2) - box.left) / z;
+      const py = ((y ?? m.top) - box.top) / z;
+      tip!.style.left = `${Math.min(Math.max(px, 60), box.width / z - 60)}px`;
       tip!.style.top = `${py}px`;
       tip!.hidden = false;
       root!.querySelectorAll(".is-hot").forEach((n) => n.classList.remove("is-hot"));

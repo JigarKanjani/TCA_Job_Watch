@@ -6,6 +6,9 @@ import { CHANNELS, COUNTRIES, FREQUENCIES, WINDOWS, WORK_MODES } from "@/lib/con
 import { entitlementsFor } from "@/lib/plans";
 import { DISCORD_WEBHOOK_RE } from "@/lib/notify";
 import { DEMO_MESSAGE, isDemoEmail } from "@/lib/demo";
+import { searchLinkedIn } from "@/lib/linkedin";
+import { matchesAlert } from "@/lib/matching";
+import { deliverMatches, siteOrigin, type DeliverJob } from "@/lib/deliver";
 
 export type CreateAlertState = { error?: string };
 
@@ -74,7 +77,7 @@ export async function createAlert(_prev: CreateAlertState, form: FormData): Prom
     }
   }
 
-  const { error } = await supabase.from("alerts").insert({
+  const { data: created, error } = await supabase.from("alerts").insert({
     user_id: user.id,
     role,
     city,
@@ -87,11 +90,59 @@ export async function createAlert(_prev: CreateAlertState, form: FormData): Prom
     channels,
     windows: windows.includes("always") ? ["always"] : windows,
     timezone,
-  });
-  if (error) {
-    if (error.hint === "plan_limit" || /plan allows/i.test(error.message)) return { error: error.message };
+  }).select("id").single();
+  if (error || !created) {
+    if (error?.hint === "plan_limit" || /plan allows/i.test(error?.message ?? "")) return { error: error!.message };
     return { error: "Couldn't save the alert. Please try again." };
   }
 
-  redirect("/dashboard?flash=alert_created");
+  // Search right away so the dashboard fills up now, and send an instant
+  // alert's first batch immediately. Daily/weekly batches wait for the digest.
+  let found = 0;
+  try {
+    const res = await searchLinkedIn({ role, city, country, workMode, hoursOld: 168 });
+    const { data: known } = await supabase.from("job_matches").select("job_url").limit(5000);
+    const seen = new Set((known ?? []).map((r) => r.job_url as string));
+    const keep = res.jobs
+      .filter((j) => matchesAlert({ city, work_mode: workMode, min_salary: minSalary, exclude_keywords: excludes }, j, seen))
+      .slice(0, 40);
+    if (keep.length) {
+      let queued = true;
+      let saved = await supabase.rpc("save_found_jobs", { p_alert_id: created.id, p_jobs: keep, p_queue: true });
+      if (saved.error) {
+        // Before the triage migration the RPC has no p_queue (it marks jobs as seen).
+        queued = false;
+        saved = await supabase.rpc("save_found_jobs", { p_alert_id: created.id, p_jobs: keep });
+      }
+      found = typeof saved.data === "number" ? saved.data : 0;
+      if (found && frequency === "instant") {
+        const { data: batch } = await supabase
+          .from("job_matches")
+          .select("id, title, company, location, salary, job_url")
+          .eq("alert_id", created.id)
+          .order("found_at", { ascending: false })
+          .limit(25)
+          .returns<DeliverJob[]>();
+        const sent = await deliverMatches({
+          alert: { role, frequency },
+          jobs: batch ?? [],
+          channels,
+          to: {
+            email: profile?.email ?? user.email ?? null,
+            telegram_chat_id: profile?.telegram_chat_id ?? null,
+            discord_webhook_url: discordUrl || profile?.discord_webhook_url || null,
+          },
+          site: await siteOrigin(),
+          note: "Here's your first batch. From now on, new matches arrive as they're found, during the hours you picked.",
+        });
+        if (queued && Object.values(sent).some(Boolean)) {
+          await supabase.rpc("mark_alert_delivered", { p_alert_id: created.id, p_match_ids: (batch ?? []).map((b) => b.id) });
+        }
+      }
+    }
+  } catch {
+    // The scheduled scan picks it up within the hour.
+  }
+
+  redirect(`/dashboard?flash=${found ? "alert_created_found" : "alert_created"}`);
 }
