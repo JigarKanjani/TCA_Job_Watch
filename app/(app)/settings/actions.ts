@@ -5,11 +5,13 @@ import { redirect } from "next/navigation";
 import { requireProfile, requireUser } from "@/lib/auth";
 import { APP_NAME } from "@/lib/config";
 import { DISCORD_WEBHOOK_RE, sendDiscord, sendEmail, sendTelegram } from "@/lib/notify";
+import { DEMO_MESSAGE, isDemoEmail } from "@/lib/demo";
 
 export type TestState = { ok?: boolean; message?: string };
 
 export async function saveDiscord(form: FormData) {
   const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) redirect("/settings?flash=demo_readonly");
   const url = String(form.get("discord_webhook_url") ?? "").trim();
   if (url && !DISCORD_WEBHOOK_RE.test(url)) redirect("/settings?flash=discord_invalid");
   await supabase.from("profiles").update({ discord_webhook_url: url || null }).eq("id", user.id);
@@ -18,7 +20,8 @@ export async function saveDiscord(form: FormData) {
 }
 
 export async function disconnectTelegram() {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) redirect("/settings?flash=demo_readonly");
   await supabase.rpc("disconnect_telegram");
   revalidatePath("/settings");
   redirect("/settings?flash=telegram_disconnected");
@@ -26,6 +29,7 @@ export async function disconnectTelegram() {
 
 export async function sendTest(_prev: TestState, form: FormData): Promise<TestState> {
   const { profile, user } = await requireProfile();
+  if (isDemoEmail(user.email)) return { ok: false, message: DEMO_MESSAGE };
   const channel = String(form.get("channel"));
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const line = `This is a test from ${APP_NAME}. When a matching role is posted, it'll arrive here like this.`;

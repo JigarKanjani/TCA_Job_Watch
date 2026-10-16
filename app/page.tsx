@@ -3,6 +3,9 @@ import Link from "next/link";
 import { APP_NAME, WINDOWS } from "@/lib/config";
 import { PRICING } from "@/lib/plans";
 import { getUser } from "@/lib/supabase/server";
+import { getAuthSettings } from "@/lib/authSettings";
+import { demoEnabled } from "@/lib/demo";
+import { DemoButton } from "@/components/DemoButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { HeroRadar } from "@/components/HeroRadar";
 
@@ -22,11 +25,13 @@ const TICKER = [
 ];
 
 export default async function Home() {
-  const { user } = await getUser();
+  const [{ user }, auth] = await Promise.all([getUser(), getAuthSettings()]);
   const cta = user ? (
     <Link className="btn btn-google btn-glow" href="/dashboard">Go to my dashboard →</Link>
-  ) : (
+  ) : auth.google ? (
     <GoogleSignInButton next="/onboarding" className="btn btn-google btn-glow" />
+  ) : (
+    <Link className="btn btn-google btn-glow" href="/login?mode=signup">Get started free →</Link>
   );
 
   return (
@@ -51,7 +56,8 @@ export default async function Home() {
             </p>
             <div className="hero-cta hero-in" style={{ animationDelay: "820ms" }}>
               {cta}
-              {!user && <Link className="btn btn-ghost" href="/login">Use email instead</Link>}
+              {!user && demoEnabled && <DemoButton />}
+              {!user && auth.google && <Link className="btn btn-ghost" href="/login">Use email instead</Link>}
             </div>
             <div className="trust hero-in" style={{ animationDelay: "940ms" }}>
               <span><i className="dot" /> No app to install</span>
@@ -244,8 +250,8 @@ export default async function Home() {
               <Link className="btn btn-google" href="/dashboard">Go to my dashboard →</Link>
             ) : (
               <>
-                <GoogleSignInButton next="/onboarding" />
-                <Link className="btn btn-on-accent" href="/login">Sign up with email</Link>
+                {auth.google ? <GoogleSignInButton next="/onboarding" /> : <Link className="btn btn-google" href="/login?mode=signup">Get started free →</Link>}
+                {demoEnabled ? <DemoButton className="btn btn-on-accent" /> : <Link className="btn btn-on-accent" href="/login">Sign up with email</Link>}
               </>
             )}
           </div>

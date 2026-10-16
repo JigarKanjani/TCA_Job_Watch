@@ -9,6 +9,7 @@ const MESSAGES: Record<string, { kind: "ok" | "err"; text: string }> = {
   discord_removed: { kind: "ok", text: "Discord disconnected." },
   telegram_disconnected: { kind: "ok", text: "Telegram disconnected." },
   doc_deleted: { kind: "ok", text: "Document deleted." },
+  demo_readonly: { kind: "err", text: "This is the read-only demo. Create your own free account to save changes." },
 };
 
 export function Flash({ code }: { code?: string }) {

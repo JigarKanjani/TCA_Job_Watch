@@ -7,9 +7,9 @@ import { isSupabaseConfigured } from "@/lib/config";
 
 type Mode = "signin" | "signup" | "forgot";
 
-export function EmailAuthForm({ next }: { next: string }) {
+export function EmailAuthForm({ next, initialMode = "signin" }: { next: string; initialMode?: "signin" | "signup" }) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");

@@ -7,6 +7,7 @@ import { Flash } from "@/components/Flash";
 import { SubmitButton } from "@/components/SubmitButton";
 import { deleteDocument } from "./actions";
 import { Uploader } from "./Uploader";
+import { isDemoEmail } from "@/lib/demo";
 
 export const metadata: Metadata = { title: "Documents" };
 
@@ -73,7 +74,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
             </div>
           ))}
         </div>
-        <Uploader userId={user.id} remaining={ent.maxDocuments - list.length} />
+        <Uploader userId={user.id} remaining={ent.maxDocuments - list.length} demo={isDemoEmail(user.email)} />
       </div>
     </>
   );

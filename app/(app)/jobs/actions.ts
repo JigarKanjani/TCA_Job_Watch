@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { STATUSES } from "@/lib/config";
 import { checkJobUrl, fetchJobDetails } from "@/lib/jd";
+import { DEMO_MESSAGE, isDemoEmail } from "@/lib/demo";
 
 export type JobFormState = { error?: string; ok?: string };
 
@@ -15,7 +16,8 @@ const clip = (v: FormDataEntryValue | null, n: number) => {
 };
 
 export async function quickStatus(form: FormData) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) redirect("/jobs?flash=demo_readonly");
   const id = String(form.get("id") ?? "");
   const status = String(form.get("status") ?? "");
   if (!validStatus(status)) return;
@@ -32,7 +34,8 @@ export async function quickStatus(form: FormData) {
 }
 
 export async function updateTracker(_prev: JobFormState, form: FormData): Promise<JobFormState> {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) return { error: DEMO_MESSAGE };
   const id = String(form.get("id") ?? "");
   const status = String(form.get("status") ?? "new");
   if (!validStatus(status)) return { error: "Pick a valid stage." };
@@ -60,7 +63,8 @@ export async function updateTracker(_prev: JobFormState, form: FormData): Promis
 }
 
 export async function saveDescription(_prev: JobFormState, form: FormData): Promise<JobFormState> {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) return { error: DEMO_MESSAGE };
   const id = String(form.get("id") ?? "");
   const description = clip(form.get("description"), 60000);
   const { error } = await supabase.from("job_matches").update({ description }).eq("id", id);
@@ -70,7 +74,8 @@ export async function saveDescription(_prev: JobFormState, form: FormData): Prom
 }
 
 export async function fetchDescription(_prev: JobFormState, form: FormData): Promise<JobFormState> {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) return { error: DEMO_MESSAGE };
   const id = String(form.get("id") ?? "");
   const { data: job } = await supabase.from("job_matches").select("job_url, title, company, location").eq("id", id).single();
   if (!job) return { error: "Job not found." };
@@ -91,6 +96,7 @@ export async function fetchDescription(_prev: JobFormState, form: FormData): Pro
 
 export async function addJob(_prev: JobFormState, form: FormData): Promise<JobFormState> {
   const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) return { error: DEMO_MESSAGE };
   const raw = String(form.get("job_url") ?? "");
   const checked = checkJobUrl(raw);
   if (typeof checked === "string") return { error: checked };
@@ -123,7 +129,8 @@ export async function addJob(_prev: JobFormState, form: FormData): Promise<JobFo
 }
 
 export async function deleteJob(form: FormData) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) redirect("/jobs?flash=demo_readonly");
   const id = String(form.get("id") ?? "");
   await supabase.from("job_matches").delete().eq("id", id);
   revalidatePath("/jobs");

@@ -28,7 +28,8 @@ Browser ──> Next.js (Vercel) ──RLS──> Supabase  <──secret-gated 
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL`,
 `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`,
 `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (or `RESEND_API_KEY`),
-optional `FIRECRAWL_API_KEY` (better job-description fetching).
+optional `FIRECRAWL_API_KEY` (better job-description fetching), optional `DEMO_EMAIL` + `DEMO_PASSWORD`
+(enables the one-click read-only demo; writes are blocked in the database for that account).
 
 **GitHub Actions** (repo → Settings → Secrets and variables → Actions):
 secrets `WORKER_SECRET`, `TELEGRAM_BOT_TOKEN`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,

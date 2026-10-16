@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth";
 import { CHANNELS, COUNTRIES, FREQUENCIES, WINDOWS, WORK_MODES } from "@/lib/config";
 import { entitlementsFor } from "@/lib/plans";
 import { DISCORD_WEBHOOK_RE } from "@/lib/notify";
+import { DEMO_MESSAGE, isDemoEmail } from "@/lib/demo";
 
 export type CreateAlertState = { error?: string };
 
@@ -30,6 +31,7 @@ function intOrNull(v: FormDataEntryValue | null, min: number, max: number): numb
 export async function createAlert(_prev: CreateAlertState, form: FormData): Promise<CreateAlertState> {
   const { supabase, user, profile } = await requireProfile();
   const ent = entitlementsFor(profile?.plan);
+  if (isDemoEmail(user.email)) return { error: DEMO_MESSAGE };
 
   const role = String(form.get("role") ?? "").trim();
   const city = String(form.get("city") ?? "").trim();

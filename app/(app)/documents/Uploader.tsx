@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 const ACCEPT = ".pdf,.doc,.docx,.txt";
 const MAX_BYTES = 5 * 1024 * 1024;
 
-export function Uploader({ userId, remaining }: { userId: string; remaining: number }) {
+export function Uploader({ userId, remaining, demo = false }: { userId: string; remaining: number; demo?: boolean }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<"resume" | "cover_letter">("resume");
@@ -28,6 +28,7 @@ export function Uploader({ userId, remaining }: { userId: string; remaining: num
 
   async function upload(e: React.FormEvent) {
     e.preventDefault();
+    if (demo) return setError("This is the read-only demo. Create your own free account to upload documents.");
     if (!picked) return setError("Choose a file first.");
     if (remaining <= 0) return setError("You've reached your document limit. Delete one to upload another.");
     setBusy(true);
