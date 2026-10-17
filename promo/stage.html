@@ -1,0 +1,582 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>JobWatch promo stage</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  :root {
+    --coral: #db624d; --coral-ink: #a8402f; --pink: #e5446d; --amber: #f59e0b; --cream: #f0e3db;
+    --bg: #fffcfa; --surface: #fff; --ink: #111827; --muted: #4b5563; --line: #efe4dd; --ok: #067647;
+    --display: "Bricolage Grotesque", sans-serif; --body: "IBM Plex Sans", sans-serif; --mono: "IBM Plex Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #000; overflow: hidden; }
+  #stage { position: relative; overflow: hidden; background: var(--bg); font-family: var(--body); color: var(--ink); }
+  .land #stage { width: 1920px; height: 1080px; }
+  .port #stage { width: 1080px; height: 1920px; }
+  .abs { position: absolute; }
+  .layer { position: absolute; inset: 0; }
+
+  /* background */
+  .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; }
+  .grid { position: absolute; inset: -40px; background-image: radial-gradient(rgba(219,98,77,.16) 1.6px, transparent 1.7px); background-size: 34px 34px; }
+
+  /* brand corner */
+  #brand { display: flex; align-items: center; gap: 14px; font-family: var(--display); font-weight: 800; font-size: 30px; letter-spacing: -.01em; }
+  #brand svg { width: 44px; height: 44px; }
+
+  /* lifecycle rail */
+  #rail { display: flex; align-items: center; }
+  .step { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 19px; letter-spacing: .08em; text-transform: uppercase; color: #9a8f8a; white-space: nowrap; }
+  .step .dot { width: 18px; height: 18px; border-radius: 50%; border: 3px solid #d9cbc3; background: var(--bg); flex: none; }
+  .step.done { color: var(--coral-ink); }
+  .step.done .dot { background: var(--coral); border-color: var(--coral); }
+  .step.on { color: var(--ink); font-weight: 600; }
+  .step.on .dot { background: var(--coral); border-color: var(--coral); box-shadow: 0 0 0 7px rgba(219,98,77,.18); }
+  .rail-line { flex: 1; height: 3px; background: #eadbd2; margin: 0 16px; border-radius: 3px; overflow: hidden; }
+  .rail-line i { display: block; height: 100%; background: var(--coral); width: 0; }
+  .port .step { font-size: 15px; gap: 8px; letter-spacing: .04em; }
+  .port .step .dot { width: 14px; height: 14px; }
+  .port .rail-line { margin: 0 8px; }
+
+  /* captions */
+  .cap { position: absolute; }
+  .eyebrow { font-family: var(--mono); font-size: 22px; letter-spacing: .16em; text-transform: uppercase; color: var(--coral-ink); font-weight: 600; margin-bottom: 18px; }
+  .headline { font-family: var(--display); font-weight: 800; font-size: 78px; line-height: 1.0; letter-spacing: -.025em; }
+  .headline em { font-style: normal; background: linear-gradient(90deg, #db624d, #e5446d 60%, #f59e0b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .chips { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 34px; }
+  .chip { font-size: 25px; font-weight: 600; padding: 11px 20px; border-radius: 999px; background: #fff; border: 2px solid #f1d6cc; color: var(--ink); box-shadow: 0 8px 22px -12px rgba(120,53,40,.35); white-space: nowrap; }
+  .chip.hot { background: var(--coral); border-color: var(--coral); color: #fff; }
+  .port .headline { font-size: 72px; }
+  .port .chips { gap: 12px; margin-top: 26px; }
+  .port .chip { font-size: 25px; padding: 9px 18px; }
+
+  /* devices */
+  #device { position: absolute; transform-style: preserve-3d; }
+  .browser { background: #fff; border-radius: 22px; box-shadow: 0 50px 100px -40px rgba(120,53,40,.45), 0 0 0 1px rgba(17,24,39,.06); overflow: hidden; }
+  .browser .top { height: 50px; background: #f7efea; display: flex; align-items: center; padding: 0 20px; gap: 9px; border-bottom: 1px solid var(--line); }
+  .browser .top i { width: 14px; height: 14px; border-radius: 50%; background: #e5d5cc; display: block; }
+  .browser .url { margin-left: 22px; flex: 1; height: 30px; border-radius: 9px; background: #fff; border: 1px solid var(--line); font-family: var(--mono); font-size: 16px; color: #8a7d77; display: flex; align-items: center; padding: 0 14px; }
+  .phone { background: #1a1311; border-radius: 70px; padding: 16px; box-shadow: 0 60px 110px -40px rgba(80,30,20,.6), inset 0 0 0 3px #3a2d29; }
+  .phone .island { position: absolute; top: 30px; left: 50%; width: 150px; height: 40px; margin-left: -75px; background: #0d0908; border-radius: 22px; z-index: 30; }
+  .screen { position: relative; overflow: hidden; background: var(--bg); }
+  .phone .screen { border-radius: 54px; }
+  .shot { position: absolute; inset: 0; overflow: hidden; }
+  .shot img.main { position: absolute; transform-origin: 0 0; image-rendering: auto; }
+  .shot.card { background: linear-gradient(180deg, #fffcfa, #fbf3ee); }
+  .chrome { position: absolute; left: 0; right: 0; top: 0; height: 60px; background: var(--coral); display: flex; align-items: center; padding: 0 22px; gap: 12px; color: #fff; font-family: var(--display); font-weight: 700; font-size: 22px; z-index: 5; }
+  .chrome svg { width: 32px; height: 32px; }
+  .port .chrome { padding-top: 22px; height: 92px; font-size: 22px; }
+  .ring { position: absolute; border: 4px solid var(--coral); border-radius: 14px; box-shadow: 0 0 0 6px rgba(219,98,77,.18), 0 0 40px rgba(219,98,77,.35); z-index: 20; pointer-events: none; }
+  .cursor { position: absolute; width: 38px; height: 38px; z-index: 25; filter: drop-shadow(0 4px 6px rgba(0,0,0,.3)); }
+  .ripple { position: absolute; border-radius: 50%; border: 4px solid var(--coral); z-index: 24; }
+
+  /* overlay pieces */
+  .toast { position: absolute; width: 520px; background: #fff; border-radius: 20px; padding: 18px 22px; box-shadow: 0 24px 60px -24px rgba(80,30,20,.45), 0 0 0 1px rgba(17,24,39,.06); display: flex; gap: 16px; align-items: flex-start; }
+  .toast .ic { width: 48px; height: 48px; border-radius: 14px; flex: none; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 24px; font-family: var(--display); }
+  .toast b { display: block; font-size: 17px; letter-spacing: .06em; text-transform: uppercase; color: #8a7d77; font-family: var(--mono); font-weight: 600; margin-bottom: 4px; }
+  .toast span { font-size: 22px; font-weight: 600; line-height: 1.25; }
+  .badge { position: absolute; display: flex; align-items: center; gap: 14px; padding: 16px 26px; border-radius: 999px; background: #fff; font-size: 30px; font-weight: 700; box-shadow: 0 26px 60px -24px rgba(80,30,20,.5), 0 0 0 1px rgba(17,24,39,.05); white-space: nowrap; }
+  .badge .e { font-size: 34px; }
+  .badge.green { color: var(--ok); }
+  .badge.amber { color: #8a4b06; background: #fff7ea; }
+  .badge.coral { background: var(--coral); color: #fff; }
+  .badge.dark { background: #1f1714; color: #fff; }
+  .docx { position: absolute; width: 190px; height: 230px; background: #fff; border-radius: 16px; box-shadow: 0 30px 60px -25px rgba(30,40,90,.5), 0 0 0 1px rgba(17,24,39,.06); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+  .docx .w { width: 84px; height: 84px; border-radius: 16px; background: #2b579a; color: #fff; display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: 44px; }
+  .docx span { font-size: 19px; font-weight: 600; text-align: center; padding: 0 12px; line-height: 1.2; }
+  .countdown { position: absolute; display: flex; align-items: center; gap: 14px; background: #1f1714; color: #fff; padding: 16px 26px; border-radius: 18px; font-family: var(--mono); font-size: 34px; font-weight: 600; box-shadow: 0 26px 60px -24px rgba(0,0,0,.6); }
+  .countdown small { font-family: var(--body); font-size: 20px; font-weight: 500; opacity: .8; }
+  .pipe { position: absolute; display: flex; align-items: center; gap: 0; background: #fff; padding: 20px 28px; border-radius: 22px; box-shadow: 0 26px 60px -24px rgba(80,30,20,.45); }
+  .pipe .st { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 21px; font-weight: 600; color: #a89c96; width: 124px; }
+  .pipe .st i { width: 26px; height: 26px; border-radius: 50%; border: 4px solid #e2d4cc; display: block; background: #fff; }
+  .pipe .st.on { color: var(--ink); }
+  .pipe .st.on i { background: var(--coral); border-color: var(--coral); box-shadow: 0 0 0 7px rgba(219,98,77,.18); }
+  .pipe .ln { width: 34px; height: 4px; background: #eadbd2; margin-bottom: 30px; border-radius: 3px; overflow: hidden; }
+  .pipe .ln b { display: block; height: 100%; background: var(--coral); width: 0; }
+  .mail { position: absolute; background: #fff; border-radius: 24px; overflow: hidden; box-shadow: 0 50px 100px -40px rgba(80,30,20,.55), 0 0 0 1px rgba(17,24,39,.06); }
+  .mail .mh { height: 92px; padding: 14px 22px; border-bottom: 1px solid var(--line); background: #fff; position: relative; z-index: 2; }
+  .mail .mh b { display: block; font-size: 19px; color: #8a7d77; font-family: var(--mono); letter-spacing: .05em; }
+  .mail .mh span { display: block; font-size: 22px; font-weight: 700; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mail .mb { position: absolute; left: 0; right: 0; top: 92px; bottom: 0; overflow: hidden; background: #f6efea; }
+  .mail .mb img { position: absolute; left: 0; width: 100%; }
+  .finep { position: absolute; font-size: 21px; color: var(--muted); background: rgba(255,255,255,.92); padding: 10px 18px; border-radius: 12px; }
+
+  /* hook + CTA */
+  #hook, #cta { position: absolute; inset: 0; background: linear-gradient(135deg, #db624d 0%, #e5446d 55%, #f08a2c 100%); color: #fff; overflow: hidden; }
+  .tiles { position: absolute; inset: -10%; perspective: 1600px; }
+  .tile { position: absolute; border-radius: 18px; overflow: hidden; box-shadow: 0 30px 60px -20px rgba(60,10,10,.5); }
+  .tile img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+  .bigline { position: absolute; left: 0; right: 0; text-align: center; font-family: var(--display); font-weight: 800; letter-spacing: -.03em; line-height: 1.0; }
+  .bigline .w { display: inline-block; margin: 0 .12em; }
+  .land .bigline { font-size: 132px; }
+  .port .bigline { font-size: 118px; padding: 0 60px; }
+  .pill { display: inline-block; background: #fff; color: var(--coral); padding: 0 .18em .04em; border-radius: .18em; }
+  .cta-mark svg { width: 100%; height: 100%; }
+  .url { display: inline-flex; align-items: center; gap: 16px; background: #fff; color: var(--coral-ink); font-family: var(--mono); font-weight: 600; border-radius: 999px; box-shadow: 0 24px 60px -20px rgba(60,10,10,.55); }
+  .cta-chip { display: inline-block; border: 2px solid rgba(255,255,255,.65); color: #fff; border-radius: 999px; font-weight: 600; }
+  #flash { position: absolute; inset: 0; background: #fff; pointer-events: none; opacity: 0; }
+
+  /* ticker */
+  #ticker { position: absolute; left: 0; right: 0; bottom: 0; background: #fff6f1; border-top: 1px solid var(--line); overflow: hidden; white-space: nowrap; display: flex; align-items: center; }
+  #ticker .tt { display: inline-block; font-size: 23px; color: var(--muted); font-weight: 500; }
+  #ticker .tt b { color: var(--coral); margin: 0 18px; font-weight: 700; }
+  .land #ticker { height: 66px; }
+  .port #ticker { height: 72px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="layer" id="bgl"><div class="grid"></div><div class="blob" id="b1"></div><div class="blob" id="b2"></div><div class="blob" id="b3"></div></div>
+  <div class="abs" id="brand"></div>
+  <div class="abs" id="rail"></div>
+  <div id="caps"></div>
+  <div id="device"></div>
+  <div id="ov"></div>
+  <div id="ticker"><span class="tt" id="tt"></span></div>
+  <div id="cta"></div>
+  <div id="hook"></div>
+  <div id="flash"></div>
+</div>
+<script src="boxes.js"></script>
+<script>
+const P = new URLSearchParams(location.search);
+const FMT = P.get("fmt") === "port" ? "port" : "land";
+const L = FMT === "land";
+document.documentElement.className = FMT;
+const D = L ? "shots/d/" : "shots/m/";
+const BOX = window.BOXES[L ? "d" : "m"];
+
+// ------------------------------------------------------------ helpers
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, p) => a + (b - a) * p;
+const E = {
+  out: (p) => 1 - Math.pow(1 - p, 3),
+  in: (p) => p * p * p,
+  io: (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2),
+  back: (p) => { const c = 1.70158, c3 = c + 1; return 1 + c3 * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); },
+};
+const prog = (t, a, d = 0.4) => clamp((t - a) / d);
+// visible from a to b with fade in/out
+const vis = (t, a, b, fi = 0.35, fo = 0.3) => Math.min(E.out(prog(t, a, fi)), 1 - E.in(prog(t, b, fo)));
+const el = (tag, cls, html, parent) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; (parent || document.body).appendChild(e); return e; };
+const css = (e, o) => { for (const k in o) e.style[k] = o[k]; };
+const LOGO = (tile = "#F0E3DB", ink = "#DB624D") => `<svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${tile}"/><circle cx="29" cy="35" r="18" fill="none" stroke="${ink}" stroke-width="4.5"/><circle cx="29" cy="35" r="8.5" fill="none" stroke="${ink}" stroke-width="4.5" opacity=".65"/><path d="M29 35 43.5 20.5" stroke="${ink}" stroke-width="4.5" stroke-linecap="round"/><circle cx="47" cy="17" r="7" fill="#F59E0B" stroke="${tile}" stroke-width="3"/></svg>`;
+
+const S = { W: L ? 1920 : 1080, H: L ? 1080 : 1920 };
+const SC = L ? { W: 1080, H: 646 } : { W: 584, H: 1264 }; // device screen
+
+// ------------------------------------------------------------ timeline
+const SCN = [
+  { id: "hook", a: 0, b: 4.8 },
+  { id: "setup", a: 4.8, b: 12.8, rail: 0, eyebrow: "01 · Set up in a minute", head: L ? "Tell it what<br>you're <em>after.</em>" : "Tell it what you're <em>after.</em>",
+    chips: [["Role", 5.85], ["City", 6.45], ["Pay floor", 7.25], ["Instant · Daily · Weekly", 8.3], ["Email", 10.6], ["Telegram", 11.15], ["Discord", 11.9]] },
+  { id: "find", a: 12.8, b: 18.45, rail: 1, eyebrow: "02 · Find", head: L ? "Matches come<br><em>to you.</em>" : "Matches come <em>to you.</em>",
+    chips: [["LinkedIn + Indeed", 13.0], ["Every 30 minutes", 13.55], ["Only in your hours", 14.1], ["Find jobs now", 15.2], ["Brief in your inbox", 16.6]] },
+  { id: "sort", a: 18.45, b: 24.05, rail: 2, eyebrow: "03 · Sort", head: L ? "Swipe through them<br>in <em>a minute.</em>" : "Swipe through them in <em>a minute.</em>",
+    chips: [["→ Apply", 19.5], ["↓ Maybe", 20.05], ["← Not interested", 20.55], ["↑ Super Apply · 24 h", 21.35], ["↶ Redo", 22.7]] },
+  { id: "pay", a: 24.05, b: 28.45, rail: 2, eyebrow: "Pay on every job", head: L ? "Know the pay<br><em>before you apply.</em>" : "Know the pay <em>before you apply.</em>",
+    chips: [["Posted pay first", 25.9], ["Clearly labelled estimates", 26.6]] },
+  { id: "track", a: 28.45, b: 31.45, rail: 3, eyebrow: "04 · Track", head: L ? "Every application,<br><em>one log.</em>" : "Every application, <em>one log.</em>",
+    chips: [["Stages & dates", 28.9], ["Notes", 29.4], ["Résumé used", 29.9], ["Archive", 30.4]] },
+  { id: "kit", a: 31.45, b: 42.35, rail: 4, eyebrow: "05 · Apply", head: L ? "Your application<br><em>kit.</em>" : "Your application <em>kit.</em>",
+    chips: [["Résumé ↔ job match", 31.7], ["Cover letter · Word", 35.1], ["Tailored résumé · Word", 36.5], ["Recruiter email finder", 38.2], ["Follow-up & thank-you", 40.0]] },
+  { id: "prep", a: 42.35, b: 48.25, rail: 5, eyebrow: "06 · Interview", head: L ? "Practise<br><em>out loud.</em>" : "Practise <em>out loud.</em>",
+    chips: [["Prompt built from the job + your résumé", 43.0], ["Voice mock interview", 44.2]] },
+  { id: "safe", a: 48.25, b: 53.6, rail: -1, eyebrow: "Private by design", head: L ? "Your data<br><em>stays yours.</em>" : "Your data <em>stays yours.</em>",
+    chips: [["Download anytime", 52.0], ["Delete anytime", 52.45]] },
+  { id: "cta", a: 53.6, b: 60.01 },
+];
+const sceneAt = (t) => SCN.find((s) => t >= s.a && t < s.b) || SCN[SCN.length - 1];
+
+// ------------------------------------------------------------ shots (what the device screen shows)
+// cam: [time, fx, fy, zoom] — focus point (fraction of image) kept at screen centre, clamped to edges
+const card = true;
+const SHOTS = L ? [
+  { id: "login", src: "login", t0: 4.8, t1: 6.15, fit: "cover", cam: [[4.8, .5, .55, 1.15], [6.15, .5, .62, 1.45]] },
+  { id: "onb0", src: "onb-0-card", t0: 6.15, t1: 7.25, card, fit: "contain", pad: 40, cam: [[6.15, .5, .5, 1], [7.25, .5, .5, 1.06]] },
+  { id: "onb2", src: "onb-2-card", t0: 7.25, t1: 8.55, card, fit: "contain", pad: 40, cam: [[7.25, .5, .5, 1], [7.7, .5, .5, 1], [8.5, .25, .52, 1.45]] },
+  { id: "onb3", src: "onb-3-card", t0: 8.55, t1: 10.6, card, fit: "width", pad: 70, cam: [[8.55, .5, .12, 1], [9.4, .5, .12, 1], [10.6, .5, .42, 1]] },
+  { id: "onb4", src: "onb-4-card", t0: 10.6, t1: 12.8, card, fit: "contain", pad: 40, cam: [[10.6, .5, .5, 1], [12.8, .5, .52, 1.12]] },
+  { id: "dash", src: "dashboard", t0: 12.8, t1: 16.05, fit: "cover", cam: [[12.8, .5, .35, 1], [14.6, .5, .42, 1.12], [15.4, .78, .52, 1.4]] },
+  { id: "dash2", src: "dashboard", t0: 16.05, t1: 18.45, fit: "cover", cam: [[16.05, .78, .52, 1.4], [18.45, .6, .5, 1.25]] },
+  { id: "tri", src: "triage", t0: 18.45, t1: 19.45, fit: "cover", cam: [[18.45, .5, .5, 1.05], [19.45, .5, .5, 1.2]] },
+  { id: "tria", src: "triage-apply", t0: 19.45, t1: 20.3, fit: "cover", cam: [[19.45, .5, .5, 1.2]] },
+  { id: "trip", src: "triage-pass", t0: 20.3, t1: 21.25, fit: "cover", cam: [[20.3, .5, .5, 1.2]] },
+  { id: "tris", src: "triage-super", t0: 21.25, t1: 24.05, fit: "cover", cam: [[21.25, .5, .5, 1.2], [24.05, .5, .45, 1.32]] },
+  { id: "jobs", src: "jobs", t0: 24.05, t1: 26.3, fit: "cover", cam: [[24.05, .5, .5, 1], [24.7, .5, .55, 1.05], [26.3, .52, .75, 1.75]] },
+  { id: "job", src: "job", t0: 26.3, t1: 28.45, fit: "cover", cam: [[26.3, .3, .5, 1.5], [28.45, .3, .53, 1.7]] },
+  { id: "log", src: "jobs", t0: 28.45, t1: 29.7, fit: "cover", cam: [[28.45, .5, .55, 1.15], [29.7, .5, .6, 1.2]] },
+  { id: "trk", src: "job", t0: 29.7, t1: 31.45, fit: "cover", cam: [[29.7, .75, .7, 1.25], [31.45, .78, .75, 1.6]] },
+  { id: "kfit", src: "kit-cover", t0: 31.45, t1: 34.85, card, fit: "width", pad: 0, cam: [[31.45, .5, .0, 1], [32.3, .3, .06, 1.6], [34.85, .45, .07, 1.65]] },
+  { id: "kcov", src: "kit-cover", t0: 34.85, t1: 36.4, card, fit: "width", pad: 0, cam: [[34.85, .5, .5, 1.25], [36.0, .5, .8, 1.25], [36.4, .3, .93, 1.4]] },
+  { id: "kres", src: "kit-resume", t0: 36.4, t1: 37.95, card, fit: "width", pad: 0, cam: [[36.4, .5, .45, 1.25], [37.95, .3, .9, 1.4]] },
+  { id: "kfnd", src: "kit-finder", t0: 37.95, t1: 39.85, card, fit: "width", pad: 0, cam: [[37.95, .5, .2, 1.1], [38.5, .45, .6, 1.25], [39.85, .45, .66, 1.3]] },
+  { id: "kfol", src: "kit-followup", t0: 39.85, t1: 41.0, card, fit: "width", pad: 0, cam: [[39.85, .5, .55, 1.15], [41.0, .4, .85, 1.35]] },
+  { id: "kthx", src: "kit-thanks", t0: 41.0, t1: 42.35, card, fit: "width", pad: 0, cam: [[41.0, .5, .55, 1.15], [42.35, .35, .9, 1.4]] },
+  { id: "kint", src: "kit-interview", t0: 42.35, t1: 48.25, card, fit: "width", pad: 0, cam: [[42.35, .5, .1, 1.05], [44.6, .5, .55, 1.15], [45.4, .4, .9, 1.55], [48.25, .42, .92, 1.6]] },
+  { id: "priv", src: "privacy", t0: 48.25, t1: 51.9, fit: "cover", cam: [[48.25, .4, .35, 1.1], [51.9, .4, .5, 1.25]] },
+  { id: "data", src: "settings-data", t0: 51.9, t1: 53.6, card, fit: "contain", pad: 30, cam: [[51.9, .5, .5, 1], [53.6, .55, .5, 1.12]] },
+] : [
+  { id: "login", src: "login", t0: 4.8, t1: 6.15, fit: "width", cam: [[4.8, .5, .45, 1], [6.15, .5, .5, 1.12]] },
+  { id: "onb0", src: "onb-0-card", t0: 6.15, t1: 7.25, card, fit: "width", pad: 0, cam: [[6.15, .5, .3, 1], [7.25, .5, .35, 1.04]] },
+  { id: "onb2", src: "onb-2-card", t0: 7.25, t1: 8.55, card, fit: "width", pad: 0, cam: [[7.25, .5, .3, 1], [8.55, .5, .45, 1.1]] },
+  { id: "onb3", src: "onb-3-card", t0: 8.55, t1: 10.6, card, fit: "width", pad: 0, cam: [[8.55, .5, .1, 1], [9.4, .5, .1, 1], [10.6, .5, .45, 1]] },
+  { id: "onb4", src: "onb-4-card", t0: 10.6, t1: 12.8, card, fit: "width", pad: 0, cam: [[10.6, .5, .4, 1], [12.8, .5, .45, 1.06]] },
+  { id: "dash", src: "dashboard", t0: 12.8, t1: 16.05, fit: "width", cam: [[12.8, .5, .3, 1.05], [14.6, .5, .4, 1.2], [15.4, .6, .45, 1.45]] },
+  { id: "brief", src: "brief", t0: 16.05, t1: 18.45, fit: "width", mail: true, cam: [[16.05, .5, .0, 1], [16.6, .5, .0, 1], [18.45, .5, .32, 1]] },
+  { id: "tri", src: "triage", t0: 18.45, t1: 19.45, fit: "width", cam: [[18.45, .5, .5, 1], [19.45, .5, .5, 1.04]] },
+  { id: "tria", src: "triage-apply", t0: 19.45, t1: 20.3, fit: "width", cam: [[19.45, .5, .5, 1.04]] },
+  { id: "trip", src: "triage-pass", t0: 20.3, t1: 21.25, fit: "width", cam: [[20.3, .5, .5, 1.04]] },
+  { id: "tris", src: "triage-super", t0: 21.25, t1: 24.05, fit: "width", cam: [[21.25, .5, .5, 1.04], [24.05, .5, .5, 1.1]] },
+  { id: "jobs", src: "jobs", t0: 24.05, t1: 26.3, fit: "width", cam: [[24.05, .5, .4, 1.05], [26.3, .55, .55, 1.5]] },
+  { id: "job", src: "job", t0: 26.3, t1: 28.45, fit: "width", cam: [[26.3, .45, .35, 1.4], [28.45, .45, .38, 1.6]] },
+  { id: "log", src: "jobs", t0: 28.45, t1: 29.7, fit: "width", cam: [[28.45, .5, .45, 1.05], [29.7, .5, .55, 1.1]] },
+  { id: "trk", src: "job-full", t0: 29.7, t1: 31.45, fit: "width", cam: [[29.7, .5, .55, 1], [31.45, .5, .6, 1.08]] },
+  { id: "kfit", src: "kit-cover", t0: 31.45, t1: 34.85, card, fit: "width", pad: 0, cam: [[31.45, .5, .05, 1.05], [32.3, .5, .28, 1.08], [34.85, .5, .31, 1.14]] },
+  { id: "kcov", src: "kit-cover", t0: 34.85, t1: 36.4, card, fit: "width", pad: 0, cam: [[34.85, .5, .45, 1.15], [36.4, .4, .9, 1.25]] },
+  { id: "kres", src: "kit-resume", t0: 36.4, t1: 37.95, card, fit: "width", pad: 0, cam: [[36.4, .5, .45, 1.15], [37.95, .4, .9, 1.25]] },
+  { id: "kfnd", src: "kit-finder", t0: 37.95, t1: 39.85, card, fit: "width", pad: 0, cam: [[37.95, .5, .35, 1.1], [39.85, .5, .62, 1.25]] },
+  { id: "kfol", src: "kit-followup", t0: 39.85, t1: 41.0, card, fit: "width", pad: 0, cam: [[39.85, .5, .5, 1.15], [41.0, .4, .87, 1.25]] },
+  { id: "kthx", src: "kit-thanks", t0: 41.0, t1: 42.35, card, fit: "width", pad: 0, cam: [[41.0, .5, .5, 1.15], [42.35, .4, .9, 1.25]] },
+  { id: "kint", src: "kit-interview", t0: 42.35, t1: 48.25, card, fit: "width", pad: 0, cam: [[42.35, .5, .05, 1.1], [44.6, .5, .5, 1.1], [45.4, .5, .9, 1.25], [48.25, .5, .92, 1.25]] },
+  { id: "priv", src: "privacy", t0: 48.25, t1: 51.9, fit: "width", cam: [[48.25, .5, .2, 1], [51.9, .5, .45, 1.05]] },
+  { id: "data", src: "settings-data", t0: 51.9, t1: 53.6, card, fit: "width", pad: 0, cam: [[51.9, .5, .4, 1], [53.6, .5, .5, 1.05]] },
+];
+const b = (shot, key) => { const r = BOX[shot] && BOX[shot][key]; return r ? [r.x, r.y, r.w, r.h] : null; };
+// highlight rings on top of shots: [shotId, t0, t1, box, clickTime?]
+const HL = [
+  ["login", 5.0, 6.1, b("login", "google"), 5.45],
+  ["onb0", 6.25, 7.2, b("onb-0-card", "role")],
+  ["onb2", 7.35, 8.5, b("onb-2-card", "typical")],
+  ["onb3", 8.65, 10.5, b("onb-3-card", "freq")],
+  ["onb4", 10.65, 12.7, b("onb-4-card", "channels")],
+  ["dash", 15.0, 16.0, b("dashboard", "find"), 15.45],
+  ["jobs", 24.6, 26.25, b("jobs", "pay")],
+  ["job", 26.45, 28.4, b("job", "pay")],
+  ["trk", 29.9, 31.4, b("job", "tracker")],
+  ["kfit", 31.9, 34.8, b("kit-cover", "score")],
+  ["kfit", 32.6, 34.8, b("kit-cover", "chips")],
+  ["kcov", 35.75, 36.35, b("kit-cover", "word"), 36.0],
+  ["kres", 37.0, 37.9, b("kit-resume", "word"), 37.25],
+  ["kfnd", 38.3, 39.8, b("kit-finder", "first")],
+  ["kfol", 40.35, 40.95, b("kit-followup", "open"), 40.6],
+  ["kthx", 41.45, 42.3, b("kit-thanks", "open"), 41.75],
+  ["kint", 45.0, 48.2, b("kit-interview", "ai")],
+  ["data", 52.0, 53.55, b("settings-data", "download")],
+  ["data", 52.45, 53.55, b("settings-data", "account")],
+];
+
+// ------------------------------------------------------------ build DOM
+const stage = document.getElementById("stage");
+// background blobs
+const blobs = [["b1", "#f6b4a5", 760], ["b2", "#f9c9d4", 680], ["b3", "#fde2b8", 600]].map(([id, c, s]) => { const e = document.getElementById(id); css(e, { background: c, width: s + "px", height: s + "px" }); return e; });
+document.getElementById("brand").innerHTML = LOGO("#DB624D", "#F0E3DB") + "<span>JobWatch</span>";
+css(document.getElementById("brand"), L ? { left: "96px", top: "40px" } : { left: "70px", top: "56px" });
+// rail
+const RAIL = ["Set up", "Find", "Sort", "Track", "Apply", "Interview"];
+const rail = document.getElementById("rail");
+css(rail, L ? { left: "520px", right: "96px", top: "48px" } : { left: "54px", right: "54px", top: "140px" });
+const railSteps = [], railLines = [];
+RAIL.forEach((r, i) => {
+  if (i) railLines.push(el("div", "rail-line", "<i></i>", rail).firstChild);
+  railSteps.push(el("div", "step", `<span class="dot"></span><span>${r}</span>`, rail));
+});
+// captions
+const caps = document.getElementById("caps");
+const capEls = {};
+for (const s of SCN) {
+  if (!s.head) continue;
+  const c = el("div", "cap", "", caps);
+  css(c, L ? { left: "96px", top: "236px", width: "640px" } : { left: "70px", top: "214px", width: "940px" });
+  el("div", "eyebrow", s.eyebrow, c);
+  const h = el("div", "headline", s.head, c);
+  const ch = el("div", "chips", "", c);
+  const chips = s.chips.map(([txt, at]) => ({ e: el("span", "chip", txt, ch), at }));
+  capEls[s.id] = { c, h, chips };
+}
+// device
+const dev = document.getElementById("device");
+let screen;
+if (L) {
+  css(dev, { left: "760px", top: "176px", width: SC.W + "px", height: SC.H + 50 + "px" });
+  dev.className = "browser";
+  dev.innerHTML = `<div class="top"><i></i><i></i><i></i><div class="url" id="url">tca-job-watch.vercel.app</div></div>`;
+  screen = el("div", "screen", "", dev);
+  css(screen, { width: SC.W + "px", height: SC.H + "px" });
+} else {
+  css(dev, { left: Math.round((S.W - SC.W - 32) / 2) + "px", top: "520px", width: SC.W + 32 + "px", height: SC.H + 32 + "px" });
+  dev.className = "phone";
+  el("div", "island", "", dev);
+  screen = el("div", "screen", "", dev);
+  css(screen, { width: SC.W + "px", height: SC.H + "px" });
+}
+const imgs = {};
+const need = new Set();
+for (const s of SHOTS) {
+  s.el = el("div", "shot" + (s.card ? " card" : ""), "", screen);
+  if (s.card || s.mail) {
+    s.chrome = el("div", "chrome", s.mail ? `<span style="font-family:var(--body);font-weight:600">✉ Inbox · JobWatch</span>` : LOGO() + "<span>JobWatch</span>", s.el);
+  }
+  s.img = el("img", "main", null, s.el);
+  s.img.src = D + s.src + ".png";
+  need.add(s.img);
+}
+const rings = HL.map((h) => {
+  const s = SHOTS.find((x) => x.id === h[0]);
+  const r = el("div", "ring", "", s.el);
+  let cur = null, rip = null;
+  if (h[4]) {
+    cur = el("div", "cursor", `<svg viewBox="0 0 24 24"><path d="M4 2l15 11-6.5 1.2L16 21l-2.7 1.2-3.3-6.9L5 19z" fill="#111827" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>`, s.el);
+    rip = el("div", "ripple", "", s.el);
+  }
+  return { h, s, r, cur, rip };
+});
+const URLS = { login: "/login", onb0: "/onboarding", onb2: "/onboarding", onb3: "/onboarding", onb4: "/onboarding", dash: "/dashboard", dash2: "/dashboard", tri: "/dashboard", tria: "/dashboard", trip: "/dashboard", tris: "/dashboard", jobs: "/jobs", log: "/jobs", job: "/jobs/business-analyst", trk: "/jobs/business-analyst", priv: "/privacy", data: "/settings#data" };
+
+// overlays
+const ov = document.getElementById("ov");
+const mk = (cls, html, style) => { const e = el("div", cls, html, ov); css(e, style || {}); return e; };
+const toastData = [
+  ["#db624d", "✉", "Email", "New role: Business Intelligence Analyst at Aston Carter"],
+  ["#2AABEE", "➤", "Telegram", "🔔 3 new “Data Analyst” matches"],
+  ["#5865F2", "#", "Discord", "☀️ Your daily JobWatch digest — 8 new roles"],
+];
+const toasts = toastData.map(([c, ic, k, txt], i) => mk("toast", `<div class="ic" style="background:${c}">${ic}</div><div><b>${k}</b><span>${txt}</span></div>`,
+  L ? { left: "1300px", top: 250 + i * 128 + "px" } : { left: "330px", top: 760 + i * 140 + "px", width: "690px" }));
+const mail = L ? mk("mail", `<div class="mh"><b>JobWatch · just now</b><span>Just found: 9 new “Business Analyst” roles</span></div><div class="mb"><img src="${D}brief.png"></div>`, { left: "1180px", top: "250px", width: "620px", height: "740px" }) : null;
+if (mail) need.add(mail.querySelector("img"));
+const countdown = mk("countdown", `⏱ <span id="cd">23:59:59</span> <small>left to apply</small>`, L ? { left: "1290px", top: "760px" } : { left: "240px", top: "1700px" });
+const pipeStages = ["Saved", "Applied", "Interviewing", "Offer"];
+const pipe = mk("pipe", pipeStages.map((s, i) => (i ? `<div class="ln"><b></b></div>` : "") + `<div class="st"><i></i>${s}</div>`).join(""), L ? { left: "96px", top: "700px" } : { left: "100px", top: "1650px" });
+const payBadges = [
+  mk("badge green", `<span class="e">💰</span> Posted pay, from the job ad`, L ? { left: "96px", top: "640px" } : { left: "60px", top: "540px" }),
+  mk("badge amber", `<span class="e">≈</span> Est. when the ad is silent`, L ? { left: "96px", top: "740px" } : { left: "60px", top: "540px" }),
+];
+const payFine = mk("finep", "Estimates use Job Bank (Canada) and U.S. BLS wage data, always shown as a range.", L ? { left: "96px", top: "850px", width: "600px" } : { left: "60px", top: "1690px", width: "960px" });
+const docs = [mk("docx", `<div class="w">W</div><span>Cover letter<br>.docx</span>`), mk("docx", `<div class="w">W</div><span>Tailored résumé<br>.docx</span>`)];
+const finderBadge = mk("badge dark", `<span class="e">✉</span> jane.doe@capgemini.com`, L ? { left: "96px", top: "760px" } : { left: "130px", top: "1560px" });
+const AIS = [["ChatGPT", 45.1], ["Claude", 46.07], ["Gemini", 46.69], ["Grok", 47.38]];
+const aiChips = AIS.map(([n, at], i) => ({ e: mk("badge", `<span class="e">💬</span> ${n}`, L ? { left: 96 + (i % 2) * 300 + "px", top: 720 + Math.floor(i / 2) * 100 + "px" } : { left: 70 + (i % 2) * 480 + "px", top: 1480 + Math.floor(i / 2) * 110 + "px" }), at }));
+const mic = mk("badge coral", `<span class="e">🎙</span> Voice mode`, L ? { left: "96px", top: "610px" } : { left: "330px", top: "1360px" });
+const safeBadges = [["🇨🇦", "Stored in Canada", 48.45], ["🔒", "Encrypted in transit & at rest", 50.2], ["🚫", "Never sold. No ads.", 51.0]].map(([e, txt, at], i) => ({
+  e: mk("badge", `<span class="e">${e}</span> ${txt}`, L ? { left: "96px", top: 560 + i * 104 + "px" } : { left: "70px", top: 1000 + i * 120 + "px" }), at }));
+const safeNote = mk("finep", "Database and files: Supabase, Montréal (ca-central-1).", L ? { left: "96px", top: "890px", width: "620px" } : { left: "70px", top: "1380px", width: "940px" });
+
+// ticker
+const TICK = ["Add any job by link", "Job details filled in for you", "Delivery windows & time zones", "Daily & weekly digests", "Test alerts", "Archive & redo", "Keyboard shortcuts", "Super Apply timers", "Dashboard charts", "Notes & documents", "Base résumé in Settings", "Search briefs", "LinkedIn note drafts", "Download your data", "Delete anytime", "Dark mode", "Phone-ready", "Big, readable desktop view", "Spam & abuse protection"];
+const tt = document.getElementById("tt");
+tt.innerHTML = (TICK.map((x) => `${x}<b>•</b>`).join("")).repeat(3);
+
+// hook
+const hook = document.getElementById("hook");
+const tiles = el("div", "tiles", "", hook);
+const tileSrc = L ? ["shots/d/dashboard.png", "shots/d/jobs.png", "shots/d/triage.png", "shots/d/kit-cover.png", "shots/d/job.png", "shots/d/alerts.png", "shots/d/documents.png", "shots/d/onb-3-card.png"]
+                  : ["shots/m/dashboard.png", "shots/m/triage.png", "shots/m/jobs.png", "shots/m/job.png", "shots/m/kit-cover.png", "shots/m/alerts.png"];
+const tileEls = tileSrc.map((src, i) => { const t = el("div", "tile", `<img src="${src}">`, tiles); need.add(t.querySelector("img")); return t; });
+const line1 = el("div", "bigline", ["Job", "hunting", "is a", "full-time", "job."].map((w) => `<span class="w">${w}</span>`).join(L ? " " : " "), hook);
+const line2 = el("div", "bigline", ["Let", '<span class="pill">JobWatch</span>', "do the", "busywork."].map((w) => `<span class="w">${w}</span>`).join(" "), hook);
+css(line1, { top: L ? "380px" : "700px" });
+css(line2, { top: L ? "380px" : "700px" });
+const hookMark = el("div", "cta-mark", LOGO(), hook);
+css(hookMark, L ? { position: "absolute", left: "910px", top: "230px", width: "100px", height: "100px" } : { position: "absolute", left: "470px", top: "520px", width: "140px", height: "140px" });
+const w1 = [...line1.querySelectorAll(".w")], w2 = [...line2.querySelectorAll(".w")];
+const W1T = [0.40, 0.66, 0.98, 1.28, 1.8], W2T = [2.74, 3.0, 3.55, 3.85];
+
+// CTA
+const cta = document.getElementById("cta");
+cta.innerHTML = `
+  <div class="tiles" id="ctaTiles" style="inset:0"></div>
+  <div class="abs cta-mark" id="ctaMark">${LOGO()}</div>
+  <div class="bigline" id="ctaName">JobWatch</div>
+  <div class="bigline" id="ctaTag" style="font-weight:700">Your whole job search,<br>in one free place.</div>
+  <div class="abs" id="ctaUrl" style="left:0;right:0;text-align:center"><span class="url">tca-job-watch.vercel.app →</span></div>
+  <div class="abs" id="ctaChips" style="left:0;right:0;text-align:center"></div>`;
+const ctaTiles = cta.querySelector("#ctaTiles");
+const ctaShots = L ? [["shots/d/dashboard-dark.png", -130, 560, 500, 281, -9], ["shots/d/job.png", 1570, 560, 500, 281, 9]] : [["shots/m/dashboard-dark.png", 80, 1330, 300, 650, -8], ["shots/m/job.png", 700, 1330, 300, 650, 8]];
+const ctaTileEls = ctaShots.map(([src, x, y, w, h, r]) => { const t = el("div", "tile", `<img src="${src}">`, ctaTiles); css(t, { left: x + "px", top: y + "px", width: w + "px", height: h + "px" }); t.dataset.r = r; need.add(t.querySelector("img")); return t; });
+const ctaChipTxt = ["100% free", "Canada & US", "Phone + desktop", "Light & dark mode"];
+const ctaChips = ctaChipTxt.map((c) => el("span", "cta-chip", c, cta.querySelector("#ctaChips")));
+const ctaMark = cta.querySelector("#ctaMark"), ctaName = cta.querySelector("#ctaName"), ctaTag = cta.querySelector("#ctaTag"), ctaUrl = cta.querySelector("#ctaUrl");
+if (L) {
+  css(ctaMark, { left: "900px", top: "150px", width: "120px", height: "120px" });
+  css(ctaName, { top: "300px", fontSize: "150px" });
+  css(ctaTag, { top: "480px", fontSize: "64px", lineHeight: "1.08" });
+  css(ctaUrl, { top: "680px" });
+  css(ctaUrl.firstChild, { fontSize: "40px", padding: "20px 40px" });
+  css(cta.querySelector("#ctaChips"), { top: "800px" });
+  ctaChips.forEach((c) => css(c, { fontSize: "28px", padding: "10px 24px", margin: "0 8px" }));
+} else {
+  css(ctaMark, { left: "455px", top: "330px", width: "170px", height: "170px" });
+  css(ctaName, { top: "540px", fontSize: "150px" });
+  css(ctaTag, { top: "730px", fontSize: "66px", lineHeight: "1.08", padding: "0 60px" });
+  css(ctaUrl, { top: "950px" });
+  css(ctaUrl.firstChild, { fontSize: "38px", padding: "20px 36px" });
+  css(cta.querySelector("#ctaChips"), { top: "1070px", padding: "0 80px", lineHeight: "2.4" });
+  ctaChips.forEach((c) => css(c, { fontSize: "28px", padding: "8px 22px", margin: "0 7px" }));
+}
+const flash = document.getElementById("flash");
+
+// ------------------------------------------------------------ per-frame
+function camAt(s, t) {
+  const k = s.cam;
+  if (t <= k[0][0]) return k[0].slice(1);
+  for (let i = 1; i < k.length; i++) if (t <= k[i][0]) { const p = E.io((t - k[i - 1][0]) / (k[i][0] - k[i - 1][0])); return [1, 2, 3].map((j) => lerp(k[i - 1][j], k[i][j], p)); }
+  return k[k.length - 1].slice(1);
+}
+function geom(s, t) {
+  const iw = s.img.naturalWidth, ih = s.img.naturalHeight;
+  const top0 = s.chrome ? (L ? 60 : 92) : 0;
+  const pad = s.pad ?? 0;
+  const W = SC.W, H = SC.H - top0;
+  let s0;
+  if (s.fit === "cover") s0 = Math.max(W / iw, H / ih);
+  else if (s.fit === "contain") s0 = Math.min((W - 2 * pad) / iw, (H - 2 * pad) / ih);
+  else s0 = (W - 2 * pad) / iw;
+  const [fx, fy, z] = camAt(s, t);
+  const sc = s0 * z, dw = iw * sc, dh = ih * sc;
+  let left = W / 2 - fx * dw, top = H / 2 - fy * dh;
+  const m = s.card ? pad * z * 0.6 : 0;
+  left = dw + 2 * m <= W ? (W - dw) / 2 : clamp(left, W - dw - m, m);
+  top = dh + 2 * m <= H ? (H - dh) / 2 : clamp(top, H - dh - m, m);
+  return { left, top: top + top0, dw, dh, sc };
+}
+function chipsAt(c, t) { c.chips.forEach(({ e, at }, i) => { const p = E.back(prog(t, at, 0.45)); css(e, { opacity: prog(t, at, 0.25), transform: `translateY(${(1 - p) * 26}px) scale(${0.85 + 0.15 * p})` }); const last = c.chips.filter((x) => t >= x.at).pop(); e.classList.toggle("hot", last && last.e === e); }); }
+
+function seek(t) {
+  const sc = sceneAt(t);
+  // background drift
+  css(blobs[0], { left: (L ? 1100 : 380) + Math.sin(t * .25) * 120 + "px", top: (L ? -260 : -200) + Math.cos(t * .21) * 80 + "px" });
+  css(blobs[1], { left: (L ? -240 : -260) + Math.cos(t * .19) * 100 + "px", top: (L ? 520 : 1200) + Math.sin(t * .23) * 90 + "px" });
+  css(blobs[2], { left: (L ? 600 : 500) + Math.sin(t * .17 + 1) * 140 + "px", top: (L ? 700 : 1500) + Math.cos(t * .2) * 70 + "px" });
+
+  // rail
+  const railOn = t >= 4.8 && t < 48.25;
+  css(rail, { opacity: Math.min(prog(t, 4.95, .5), 1 - prog(t, 48.0, .4)), transform: `translateY(${(1 - E.out(prog(t, 4.95, .6))) * -20}px)` });
+  const idx = sc.rail ?? -1;
+  railSteps.forEach((s, i) => { s.classList.toggle("on", railOn && i === idx); s.classList.toggle("done", railOn && i < idx); });
+  railLines.forEach((l, i) => { const sA = SCN.find((x) => x.rail === i + 1); const p = sA ? E.io(prog(t, sA.a - 0.3, 0.6)) : 0; l.style.width = p * 100 + "%"; });
+  css(document.getElementById("brand"), { opacity: Math.min(prog(t, 4.95, .5), 1 - prog(t, 53.4, .3)) });
+
+  // captions
+  for (const s of SCN) {
+    const c = capEls[s.id]; if (!c) continue;
+    const v = vis(t, s.a + 0.05, s.b - 0.25, 0.45, 0.3);
+    css(c.c, { opacity: v, transform: `translateY(${(1 - E.out(prog(t, s.a + 0.05, 0.55))) * 40 - E.in(prog(t, s.b - 0.25, 0.3)) * 30}px)`, display: v > 0.001 ? "block" : "none" });
+    if (v > 0) chipsAt(c, t);
+  }
+
+  // device
+  const devIn = E.out(prog(t, 4.75, 0.8));
+  const devOut = E.in(prog(t, 53.35, 0.3));
+  const tilt = L ? Math.sin(t * 0.35) * 1.2 : 0;
+  css(dev, { opacity: t < 4.7 || t > 53.7 ? 0 : 1 - devOut, transform: `perspective(2200px) translateY(${(1 - devIn) * 160 + devOut * 60}px) rotateX(${(1 - devIn) * 14}deg) rotateY(${(L ? -4 : 0) * (1 - devIn) + tilt}deg) scale(${0.92 + 0.08 * devIn})` });
+  let curShot = null;
+  SHOTS.forEach((s, i) => {
+    const on = t >= s.t0 - 0.001 && t < s.t1 + 0.35;
+    if (!on) { s.el.style.display = "none"; return; }
+    curShot = t < s.t1 ? s : curShot || s;
+    const p = E.out(prog(t, s.t0, 0.35));
+    css(s.el, { display: "block", opacity: s.t0 <= 4.81 ? 1 : p, zIndex: i + 1, transform: `translateY(${(1 - p) * 18}px) scale(${1.015 - 0.015 * p})` });
+    const g = geom(s, t);
+    css(s.img, { left: g.left + "px", top: g.top + "px", width: g.dw + "px", height: g.dh + "px" });
+    s.g = g;
+  });
+  if (L && curShot) document.getElementById("url").textContent = "tca-job-watch.vercel.app" + (URLS[curShot.id] || "/jobs/business-analyst");
+  rings.forEach(({ h, s, r, cur, rip }) => {
+    const [, a, z, bx, click] = h;
+    const v = bx ? vis(t, a, z, 0.25, 0.2) : 0;
+    if (v <= 0.001 || !s.g) { r.style.display = "none"; if (cur) { cur.style.display = "none"; rip.style.display = "none"; } return; }
+    const g = s.g, padR = 8;
+    const x = g.left + bx[0] * g.dw - padR, y = g.top + bx[1] * g.dh - padR, w = bx[2] * g.dw + 2 * padR, hh = bx[3] * g.dh + 2 * padR;
+    const pulse = 1 + 0.03 * Math.sin((t - a) * 7);
+    css(r, { display: "block", left: x + "px", top: y + "px", width: w + "px", height: hh + "px", opacity: v, transform: `scale(${(0.9 + 0.1 * E.back(prog(t, a, 0.35))) * pulse})` });
+    if (cur) {
+      const cx = x + w * 0.55, cy = y + hh * 0.6;
+      const mp = E.io(prog(t, click - 0.55, 0.5));
+      const down = t > click && t < click + 0.12 ? 0.85 : 1;
+      css(cur, { display: "block", left: lerp(cx + 160, cx, mp) + "px", top: lerp(cy + 120, cy, mp) + "px", opacity: v, transform: `scale(${down})` });
+      const rp = prog(t, click, 0.5);
+      const rs = 20 + rp * 90;
+      css(rip, { display: rp > 0 && rp < 1 ? "block" : "none", left: cx - rs / 2 + "px", top: cy - rs / 2 + "px", width: rs + "px", height: rs + "px", opacity: 1 - rp });
+    }
+  });
+
+  // overlays
+  toasts.forEach((e, i) => { const a = 13.1 + i * 0.45; const v = vis(t, a, 15.0, 0.4, 0.35); const p = E.back(prog(t, a, 0.5)); css(e, { display: v > 0 ? "flex" : "none", opacity: v, transform: `translateX(${(1 - p) * 120}px)` }); });
+  if (mail) {
+    const v = vis(t, 15.95, 18.3, 0.5, 0.3); const p = E.out(prog(t, 15.95, 0.6));
+    css(mail, { display: v > 0 ? "block" : "none", opacity: v, transform: `translateY(${(1 - p) * 220}px) rotate(${(1 - p) * 4}deg)` });
+    const im = mail.querySelector("img"); const scroll = E.io(prog(t, 16.6, 1.8));
+    if (im.naturalHeight) { const dh = 620 * im.naturalHeight / im.naturalWidth; im.style.top = -scroll * (dh * 0.42) + "px"; }
+  }
+  { const v = vis(t, 21.9, 23.95, 0.4, 0.3); const p = E.back(prog(t, 21.9, 0.5));
+    const left = Math.max(0, 86399 - Math.floor(Math.max(0, t - 21.9) * 1));
+    document.getElementById("cd").textContent = [Math.floor(left / 3600), Math.floor(left % 3600 / 60), left % 60].map((x) => String(x).padStart(2, "0")).join(":");
+    css(countdown, { display: v > 0 ? "flex" : "none", opacity: v, transform: `scale(${0.7 + 0.3 * p})` }); }
+  { const v = vis(t, 28.75, 31.3, 0.4, 0.3); css(pipe, { display: v > 0 ? "flex" : "none", opacity: v, transform: `translateY(${(1 - E.out(prog(t, 28.75, 0.5))) * 40}px)` });
+    const sts = pipe.querySelectorAll(".st"), lns = pipe.querySelectorAll(".ln b");
+    sts.forEach((s, i) => s.classList.toggle("on", t >= 29.0 + i * 0.6));
+    lns.forEach((l, i) => { l.style.width = E.io(prog(t, 29.0 + i * 0.6, 0.6)) * 100 + "%"; }); }
+  payBadges.forEach((e, i) => { const a = i ? 26.6 : 25.9; const v = vis(t, a, i ? 28.3 : (L ? 28.3 : 26.5), 0.35, 0.25); const p = E.back(prog(t, a, 0.45)); css(e, { display: v > 0 ? "flex" : "none", opacity: v, transform: `translateX(${(1 - p) * -60}px)` }); });
+  { const v = vis(t, 27.1, 28.3, 0.4, 0.25); css(payFine, { display: v > 0 ? "block" : "none", opacity: v }); }
+  docs.forEach((e, i) => {
+    const a = i ? 37.3 : 36.05; const v = vis(t, a, i ? 39.6 : 38.4, 0.3, 0.4); const p = E.out(prog(t, a, 0.7));
+    const from = L ? [1180, 640] : [430, 1250], to = L ? [96 + i * 220, 660] : [140 + i * 600, 1460];
+    css(e, { display: v > 0 ? "flex" : "none", opacity: v, left: lerp(from[0], to[0], p) + "px", top: lerp(from[1], to[1], p) - Math.sin(p * Math.PI) * 140 + "px", transform: `rotate(${(1 - p) * 25 + (i ? 6 : -6)}deg) scale(${0.5 + 0.5 * p})` });
+  });
+  { const v = vis(t, 38.6, 39.75, 0.35, 0.3); const p = E.back(prog(t, 38.6, 0.45)); css(finderBadge, { display: v > 0 ? "flex" : "none", opacity: v, transform: `scale(${0.8 + 0.2 * p})` }); }
+  aiChips.forEach(({ e, at }) => { const v = vis(t, at, 48.05, 0.3, 0.25); const p = E.back(prog(t, at, 0.45)); css(e, { display: v > 0 ? "flex" : "none", opacity: v, transform: `translateY(${(1 - p) * 30}px) scale(${0.8 + 0.2 * p})` }); });
+  { const v = vis(t, 43.3, 48.05, 0.35, 0.25); const p = E.back(prog(t, 43.3, 0.45)); css(mic, { display: v > 0 ? "flex" : "none", opacity: v, transform: `scale(${(0.8 + 0.2 * p) * (1 + 0.03 * Math.sin(t * 6))})` }); }
+  safeBadges.forEach(({ e, at }) => { const v = vis(t, at, 53.4, 0.3, 0.25); const p = E.back(prog(t, at, 0.5)); css(e, { display: v > 0 ? "flex" : "none", opacity: v, transform: `translateX(${(1 - p) * -80}px)` }); });
+  { const v = vis(t, 49.0, 51.85, 0.4, 0.3); css(safeNote, { display: v > 0 ? "block" : "none", opacity: v }); }
+
+  // ticker
+  const tk = document.getElementById("ticker");
+  css(tk, { opacity: Math.min(prog(t, 5.2, .5), 1 - prog(t, 53.3, .3)) });
+  tt.style.transform = `translateX(${-((t - 4.8) * 95) % (tt.scrollWidth / 3)}px)`;
+
+  // hook
+  const hv = 1 - prog(t, 4.62, 0.18);
+  css(hook, { display: hv > 0 ? "block" : "none", opacity: hv });
+  if (hv > 0) {
+    tileEls.forEach((tl, i) => {
+      const cols = L ? 4 : 3, cw = L ? 560 : 520, chh = L ? 315 : 1120;
+      const col = i % cols, row = Math.floor(i / cols);
+      const x = (L ? -60 : -140) + col * (cw + 40) + (row % 2) * 160 - t * 28;
+      const y = (L ? 40 : 60) + row * (chh * 1.05 + 30) + (L ? row * 260 : row * 220) - t * 12;
+      css(tl, { left: x + "px", top: y + "px", width: cw + "px", height: chh + "px", opacity: 0.22 + 0.08 * Math.sin(i + t), transform: `rotate(-8deg) scale(${1 + t * 0.02})` });
+    });
+    w1.forEach((w, i) => { const p = E.back(prog(t, W1T[i], 0.4)); css(w, { opacity: prog(t, W1T[i], 0.2) * (1 - prog(t, 2.5, 0.25)), transform: `translateY(${(1 - p) * 60 - E.in(prog(t, 2.5, 0.3)) * 80}px) scale(${0.8 + 0.2 * p})`, filter: `blur(${(1 - prog(t, W1T[i], 0.3)) * 8}px)` }); });
+    w2.forEach((w, i) => { const p = E.back(prog(t, W2T[i], 0.4)); css(w, { opacity: prog(t, W2T[i], 0.2), transform: `translateY(${(1 - p) * 60}px) scale(${(0.8 + 0.2 * p) * (1 + prog(t, 4.3, 0.5) * 0.08)})`, filter: `blur(${(1 - prog(t, W2T[i], 0.3)) * 8}px)` }); });
+    const mp = E.back(prog(t, 2.9, 0.55));
+    css(hookMark, { opacity: prog(t, 2.9, 0.25), transform: `scale(${mp}) rotate(${(1 - mp) * -90}deg)` });
+  }
+  // flash at the drop and before the call to action
+  css(flash, { opacity: Math.max(1 - Math.abs(t - 4.72) / 0.14, 1 - Math.abs(t - 53.58) / 0.12, 0) * 0.85 });
+
+  // CTA
+  const cv = prog(t, 53.55, 0.15);
+  css(cta, { display: cv > 0 ? "block" : "none", opacity: cv });
+  if (cv > 0) {
+    const mp = E.back(prog(t, 53.7, 0.6));
+    css(ctaMark, { transform: `scale(${mp}) rotate(${(1 - mp) * -120}deg)` });
+    const np = E.out(prog(t, 53.85, 0.5)); css(ctaName, { opacity: np, transform: `translateY(${(1 - np) * 50}px)` });
+    const tp = E.out(prog(t, 54.5, 0.6)); css(ctaTag, { opacity: tp, transform: `translateY(${(1 - tp) * 40}px)` });
+    const up = E.back(prog(t, 55.6, 0.55)); css(ctaUrl, { opacity: prog(t, 55.6, 0.3), transform: `scale(${0.8 + 0.2 * up}) translateY(${(1 - up) * 20}px)` });
+    ctaChips.forEach((c, i) => { const p = E.back(prog(t, 56.3 + i * 0.18, 0.4)); css(c, { opacity: prog(t, 56.3 + i * 0.18, 0.25), transform: `translateY(${(1 - p) * 24}px)`, display: "inline-block" }); });
+    ctaTileEls.forEach((tl, i) => { const p = E.out(prog(t, 54.0 + i * 0.15, 0.9)); css(tl, { opacity: 0.95 * p, transform: `translateY(${(1 - p) * 120 + Math.sin(t * 0.9 + i) * 6}px) rotate(${tl.dataset.r}deg)` }); });
+  }
+}
+
+window.ready = (async () => {
+  await document.fonts.ready;
+  await Promise.all([...need].map((i) => (i.complete && i.naturalWidth ? Promise.resolve() : new Promise((r) => { i.onload = r; i.onerror = r; })).then(() => i.decode().catch(() => {}))));
+  seek(0);
+  return true;
+})();
+window.seek = seek;
+</script>
+</body>
+</html>

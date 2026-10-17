@@ -8,6 +8,7 @@ import { demoEnabled } from "@/lib/demo";
 import { DemoButton } from "@/components/DemoButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { HeroRadar } from "@/components/HeroRadar";
+import { PromoVideo } from "@/components/PromoVideo";
 
 const HEADLINE = "The right role gets posted while you're refreshing the wrong tab.";
 
@@ -103,6 +104,15 @@ export default async function Home({
           ))}
         </div>
       </div>
+
+      <section className="section wrap" id="tour">
+        <div className="sec-head reveal">
+          <span className="eyebrow">See it in 60 seconds</span>
+          <h2>From the first search to the final interview.</h2>
+          <p>Set-up, alerts, swiping, pay, tracking, the application kit and interview prep, all in one minute.</p>
+        </div>
+        <PromoVideo />
+      </section>
 
       <section className="section wrap" id="how">
         <div className="sec-head reveal">

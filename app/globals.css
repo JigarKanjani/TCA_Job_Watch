@@ -177,6 +177,13 @@ p { margin: 0; }
 .sec-head h2 { font-size: clamp(1.6rem, calc(3.4 * var(--vw)), 2.3rem); letter-spacing: -0.015em; margin-top: 12px; }
 .sec-head p { color: var(--muted); margin-top: 12px; font-size: 1.02rem; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.promo-video { margin: 0 auto; display: grid; gap: 10px; justify-items: center; }
+.promo-video video { display: block; width: 100%; border-radius: var(--radius); background: #1f1714; box-shadow: var(--shadow); }
+.promo-land { max-width: 980px; }
+.promo-land video { aspect-ratio: 16 / 9; }
+.promo-port { max-width: 360px; }
+.promo-port video { aspect-ratio: 9 / 16; }
+.promo-video figcaption a { color: var(--accent-ink); font-weight: 600; }
 .tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; min-width: 0; }
 .tile .n { font-family: var(--mono); font-size: 0.8rem; color: var(--accent-ink); font-weight: 600; }
 .tile h3 { font-size: 1.1rem; margin: 10px 0 7px; }

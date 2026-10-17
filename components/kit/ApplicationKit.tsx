@@ -622,7 +622,7 @@ function InterviewTab({ ctx }: { ctx: KitContext }) {
   return (
     <div className="stack">
       <p className="hint">
-        Copy this prompt into ChatGPT, Claude or Gemini, switch on voice mode, and practise with an interviewer that knows the job and your resume.
+        Copy this prompt into ChatGPT, Claude, Gemini or Grok, switch on voice mode, and practise with an interviewer that knows the job and your resume.
       </p>
       <div className="kit-row">
         <label className="field">
@@ -708,6 +708,9 @@ function InterviewTab({ ctx }: { ctx: KitContext }) {
         </a>
         <a className="btn btn-outline btn-sm" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer" onClick={() => copy(prompt, "prompt")}>
           Open Gemini ↗
+        </a>
+        <a className="btn btn-outline btn-sm" href="https://grok.com/" target="_blank" rel="noopener noreferrer" onClick={() => copy(prompt, "prompt")}>
+          Open Grok ↗
         </a>
       </div>
       <p className="hint">
