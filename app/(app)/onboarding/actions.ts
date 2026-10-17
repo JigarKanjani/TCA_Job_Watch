@@ -9,6 +9,8 @@ import { DEMO_MESSAGE, isDemoEmail } from "@/lib/demo";
 import { searchLinkedIn } from "@/lib/linkedin";
 import { matchesAlert } from "@/lib/matching";
 import { deliverMatches, siteOrigin, type DeliverJob } from "@/lib/deliver";
+import { estimatePay, payView } from "@/lib/pay/estimate";
+import { formatRange, money } from "@/lib/pay/parse";
 
 export type CreateAlertState = { error?: string };
 
@@ -118,11 +120,15 @@ export async function createAlert(_prev: CreateAlertState, form: FormData): Prom
       if (found && frequency === "instant") {
         const { data: batch } = await supabase
           .from("job_matches")
-          .select("id, title, company, location, salary, job_url")
+          .select("id, title, company, location, salary, job_url, pay_hint")
           .eq("alert_id", created.id)
           .order("found_at", { ascending: false })
           .limit(25)
-          .returns<DeliverJob[]>();
+          .returns<(DeliverJob & { pay_hint: string | null })[]>();
+        for (const j of batch ?? []) {
+          const p = payView({ ...j, country });
+          j.pay = p ? `${p.text}${p.kind === "estimate" ? " (est.)" : ""}` : null;
+        }
         const sent = await deliverMatches({
           alert: { role, frequency },
           jobs: batch ?? [],
@@ -145,4 +151,19 @@ export async function createAlert(_prev: CreateAlertState, form: FormData): Prom
   }
 
   redirect(`/dashboard?flash=${found ? "alert_created_found" : "alert_created"}`);
+}
+
+export type TypicalPay = { range: string; median: string; floor: number; note: string } | null;
+
+/** Typical pay for a role and city, shown while setting the salary floor. */
+export async function typicalPay(role: string, city: string, country: string): Promise<TypicalPay> {
+  await requireProfile();
+  const e = estimatePay(role.trim().slice(0, 100), city.trim().slice(0, 100), country === "USA" ? "US" : "CA");
+  if (!e) return null;
+  return {
+    range: formatRange(e.min, e.max),
+    median: money(e.median),
+    floor: e.min,
+    note: `Est. for ${/^[A-Z][a-z]/.test(e.occupation) ? e.occupation.charAt(0).toLowerCase() + e.occupation.slice(1) : e.occupation} in ${e.place} (${e.source})`,
+  };
 }

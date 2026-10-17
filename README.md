@@ -5,6 +5,11 @@ places, salary floor, experience cap, **delivery windows** and **channels** they
 matches from LinkedIn + Indeed by **email, Telegram or Discord**. Every match lands in a
 **job log / tracker** with stage, applied date, resume + cover letter used, notes and the full JD.
 
+New matches pop up in a **swipe sorter** (Apply / Super Apply with a 24-hour timer / Maybe / Not
+interested), every job shows **pay** (posted, or a clearly labelled estimate), and each job page has
+an **Application kit**: cover letter and tailored resume as Word files, follow-up and thank-you
+emails, a recruiter email finder, and an interview-practice prompt for ChatGPT / Claude / Gemini.
+
 | Piece | Where | Tech |
 |---|---|---|
 | Website + API | Vercel | Next.js 15 (App Router), React 19 |
@@ -28,12 +33,28 @@ Browser ──> Next.js (Vercel) ──RLS──> Supabase  <──secret-gated 
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL`,
 `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`,
 `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (or `RESEND_API_KEY`),
-optional `FIRECRAWL_API_KEY` (better job-description fetching), optional `DEMO_EMAIL` + `DEMO_PASSWORD`
-(enables the one-click read-only demo; writes are blocked in the database for that account).
+optional `FIRECRAWL_API_KEY` (better job-description fetching and more email-pattern evidence),
+optional `ANTHROPIC_API_KEY` (+ `ANTHROPIC_MODEL`) for "Rewrite with AI" in the Application kit,
+optional `HUNTER_API_KEY` (free plan: 50 lookups/month) for verified recruiter emails,
+optional `DEMO_EMAIL` + `DEMO_PASSWORD` (enables the one-click read-only demo; writes are blocked
+in the database for that account).
 
 **GitHub Actions** (repo → Settings → Secrets and variables → Actions):
 secrets `WORKER_SECRET`, `TELEGRAM_BOT_TOKEN`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
 `EMAIL_FROM` (or `RESEND_API_KEY`); variable `SITE_URL`.
+
+## Pay: posted first, estimates clearly labelled
+`lib/pay/` decides what every card, list, email and the dashboard show:
+1. **Posted pay**: the posting's salary field (JobSpy for Indeed/LinkedIn, LinkedIn's card), the
+   posting's schema.org `baseSalary`, or a pay sentence in the description (`pay_hint` in the database).
+2. **Estimate** when nothing is posted: the job title is matched to an occupation
+   (`lib/pay/data/occupations.json`) and looked up in official wage data for the area: Canada's
+   **Job Bank wages 2025** (by city region, then province, then national) and the **U.S. BLS OEWS
+   May 2025** (by state, then national). Seniority in the title moves the band (entry-level, mid,
+   senior, lead). Estimates are always a range, marked **Est.**, with fine print.
+
+Refresh the data each year with `python scripts/build_wages.py <download-dir>` (sources and steps
+are in the script). The worker gets pay labels from the site's `/api/pay`.
 
 ## Delivery windows
 Defined in `lib/config.ts` and mirrored in `worker/run_alerts.py` (`WINDOWS`) — keep them in sync.

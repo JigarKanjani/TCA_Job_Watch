@@ -3,6 +3,7 @@ import { CountUp } from "./CountUp";
 type Props = {
   label: string;
   value: number;
+  prefix?: string;
   suffix?: string;
   delta?: { text: string; good: boolean | null };
   trend?: number[];
@@ -11,11 +12,12 @@ type Props = {
 
 // Stat tile: label · value · optional delta vs a named period · optional sparkline
 // (prior points in the muted step, the current point in the accent).
-export function StatTile({ label, value, suffix, delta, trend, note }: Props) {
+export function StatTile({ label, value, prefix, suffix, delta, trend, note }: Props) {
   return (
     <div className="stat-tile">
       <span className="stat-label">{label}</span>
       <span className="stat-value">
+        {prefix}
         <CountUp value={value} suffix={suffix} />
       </span>
       {delta && (

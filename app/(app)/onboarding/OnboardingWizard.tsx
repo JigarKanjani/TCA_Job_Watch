@@ -18,7 +18,7 @@ import {
 } from "@/lib/config";
 import { placeLabel } from "@/lib/format";
 import { SubmitButton } from "@/components/SubmitButton";
-import { createAlert, type CreateAlertState } from "./actions";
+import { createAlert, typicalPay, type CreateAlertState, type TypicalPay } from "./actions";
 
 const TIMEZONES = [
   "America/Vancouver",
@@ -64,6 +64,16 @@ export function OnboardingWizard(props: Props) {
   const [channels, setChannels] = useState<Channel[]>(["email"]);
   const [discordUrl, setDiscordUrl] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const [typical, setTypical] = useState<TypicalPay>(null);
+
+  // Typical pay for this role and city, to help pick a salary floor.
+  useEffect(() => {
+    if (role.trim().length < 2) return setTypical(null);
+    const t = window.setTimeout(() => {
+      typicalPay(role, city, country).then(setTypical).catch(() => setTypical(null));
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [role, city, country]);
   const [state, formAction] = useActionState<CreateAlertState, FormData>(createAlert, {});
 
   useEffect(() => {
@@ -178,8 +188,19 @@ export function OnboardingWizard(props: Props) {
             <div className="grid-2">
               <div className="field">
                 <label htmlFor="min_salary">Minimum salary <span className="hint">per year</span></label>
-                <input id="min_salary" className="input" inputMode="numeric" value={minSalary} onChange={(e) => setMinSalary(e.target.value)} placeholder="e.g. 65000" />
-                <span className="hint">Only filters jobs that list a salary.</span>
+                <input id="min_salary" className="input" inputMode="numeric" value={minSalary} onChange={(e) => setMinSalary(e.target.value)} placeholder={typical ? `e.g. ${typical.floor}` : "e.g. 65000"} />
+                {typical && (
+                  <div className="typical-pay">
+                    <span>
+                      Typical for this role: <b>≈ {typical.range}</b> <b className="est">Est.</b> · median {typical.median}
+                    </span>
+                    <button type="button" className="linklike small" onClick={() => setMinSalary(String(typical.floor))}>
+                      Use ${Math.round(typical.floor / 1000)}k as my floor
+                    </button>
+                    <span className="pay-fine">{typical.note}. Market estimate; actual pay varies a lot. Only postings that list pay are filtered by your floor.</span>
+                  </div>
+                )}
+                {!typical && <span className="hint">Only filters jobs that list a salary.</span>}
               </div>
               <div className="field">
                 <label htmlFor="max_experience">Most years of experience required</label>

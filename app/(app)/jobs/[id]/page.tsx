@@ -11,6 +11,8 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { deleteJob } from "../actions";
 import { TrackerForm, DescriptionPanel } from "./JobForms";
 import { ApplicationKit } from "@/components/kit/ApplicationKit";
+import { PayFinePrint, PayTag } from "@/components/PayTag";
+import { payView } from "@/lib/pay/estimate";
 
 export const metadata: Metadata = { title: "Job" };
 
@@ -31,10 +33,13 @@ export default async function JobPage({
   ]);
   if (!job) notFound();
   let alertRole: string | null = null;
+  let alertCountry: string | null = null;
   if (job.alert_id) {
-    const { data } = await supabase.from("alerts").select("role").eq("id", job.alert_id).maybeSingle();
+    const { data } = await supabase.from("alerts").select("role, country").eq("id", job.alert_id).maybeSingle();
     alertRole = data?.role ?? null;
+    alertCountry = data?.country ?? null;
   }
+  const pay = payView({ ...job, country: alertCountry });
 
   const resumes = (docs ?? []).filter((d) => d.kind === "resume");
   const covers = (docs ?? []).filter((d) => d.kind === "cover_letter");
@@ -53,8 +58,14 @@ export default async function JobPage({
           <span className="eyebrow">{job.source === "alert" ? `Found by “${alertRole ?? "an alert"}”` : "Added by you"} · {timeAgo(job.found_at)}</span>
           <h1>{job.title ?? hostOf(job.job_url)}</h1>
           <p className="muted" style={{ marginTop: 6 }}>
-            {[job.company, job.location, job.salary, job.date_posted ? `posted ${shortDate(job.date_posted)}` : null].filter(Boolean).join(" · ") || hostOf(job.job_url)}
+            {[job.company, job.location, job.date_posted ? `posted ${shortDate(job.date_posted)}` : null].filter(Boolean).join(" · ") || hostOf(job.job_url)}
           </p>
+          {pay && (
+            <div className="job-pay">
+              <PayTag pay={pay} />
+              <PayFinePrint pay={pay} />
+            </div>
+          )}
         </div>
         <a className="btn btn-accent" href={job.job_url} target="_blank" rel="noopener noreferrer">Open posting ↗</a>
       </div>

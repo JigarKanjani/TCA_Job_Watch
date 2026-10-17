@@ -7,6 +7,7 @@ import { analyzeFit, parseContact, splitSections, topAchievements } from "@/lib/
 import { aiEnabled, aiWrite, type AiKind } from "@/lib/kit/ai";
 import { findEmails, type FinderInput, type FinderResult } from "@/lib/kit/emailFinder";
 import { documentText } from "@/lib/kit/resumeText";
+import { payView } from "@/lib/pay/estimate";
 import type { KitContext } from "@/lib/kit/templates";
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -27,7 +28,7 @@ async function buildContext(jobId: string, docId: string | null): Promise<KitCon
   if (!UUID.test(jobId) || (docId && !UUID.test(docId))) return { error: "Unknown job." };
   const { data: job } = await supabase
     .from("job_matches")
-    .select("id, title, company, location, job_url, description")
+    .select("id, title, company, location, job_url, description, salary, alert_id")
     .eq("id", jobId)
     .maybeSingle();
   if (!job) return { error: "That job isn't in your log." };
@@ -41,6 +42,9 @@ async function buildContext(jobId: string, docId: string | null): Promise<KitCon
     else ({ text: resume, name: resumeName } = r);
   }
   const jd = plainJd(job.description as string | null);
+  let country: string | null = null;
+  if (job.alert_id) country = (await supabase.from("alerts").select("country").eq("id", job.alert_id).maybeSingle()).data?.country ?? null;
+  const pay = payView({ title: job.title as string | null, location: job.location as string | null, salary: job.salary as string | null, description: job.description as string | null, country });
   const fit = analyzeFit(resume, jd);
   const contact = parseContact(resume, profile?.full_name ?? null, profile?.email ?? user.email ?? null);
   return {
@@ -57,6 +61,7 @@ async function buildContext(jobId: string, docId: string | null): Promise<KitCon
     ...fit,
     achievements: topAchievements(resume, fit.jdSkills),
     sections: splitSections(resume),
+    pay: pay ? `${pay.text}${pay.kind === "estimate" ? ` (estimate: ${pay.note})` : " (from the posting)"}` : null,
     ai: aiEnabled(),
   };
 }

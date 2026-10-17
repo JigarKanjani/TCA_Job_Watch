@@ -4,16 +4,18 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { moveJob, type Move } from "@/app/(app)/dashboard/actions";
+import type { PayView } from "@/lib/pay/parse";
+import { PayFinePrint, PayTag } from "./PayTag";
 
 export type BoardJob = {
   id: string;
   title: string | null;
   company: string | null;
   location: string | null;
-  salary: string | null;
   job_url: string;
   found_at: string;
   apply_by: string | null;
+  pay: PayView | null;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -49,7 +51,7 @@ function Countdown({ until }: { until: string }) {
   );
 }
 
-const meta = (j: BoardJob) => [j.company, j.location, j.salary].filter(Boolean).join(" · ");
+const meta = (j: BoardJob) => [j.company, j.location].filter(Boolean).join(" · ");
 
 /** The sorted side of the dashboard: Super Apply on top, then To apply and Maybe. */
 export function ApplyBoard({
@@ -88,7 +90,10 @@ export function ApplyBoard({
         <Link href={`/jobs/${j.id}`}>
           <b>{j.title ?? "Untitled role"}</b>
         </Link>
-        <span className="small muted">{meta(j) || "Details in the posting"}</span>
+        <span className="small muted">
+          {meta(j) || "Details in the posting"}
+          {j.pay && <PayTag pay={j.pay} className="pay-inline" />}
+        </span>
       </div>
       <div className="row-actions">
         <a className="icon-btn" href={j.job_url} target="_blank" rel="noopener noreferrer" title="Open the posting" aria-label={`Open the posting for ${j.title ?? "this job"}`}>
@@ -116,6 +121,7 @@ export function ApplyBoard({
                   <Link href={`/jobs/${j.id}`}>{j.title ?? "Untitled role"}</Link>
                 </h3>
                 <p className="muted small">{meta(j) || "Details in the posting"}</p>
+                {j.pay && <PayTag pay={j.pay} />}
                 <div className="row">
                   <a className="btn btn-accent btn-sm" href={j.job_url} target="_blank" rel="noopener noreferrer">
                     Apply now ↗
@@ -190,6 +196,7 @@ export function ApplyBoard({
         </section>
       </div>
 
+      {[...superJobs, ...toApply.slice(0, SHOW), ...maybe.slice(0, SHOW)].some((j) => j.pay?.kind === "estimate") && <PayFinePrint />}
       <div className="board-foot small">
         <Link className="linklike" href="/jobs?status=not_interested">
           🗄 Archive · {archived} not interested →

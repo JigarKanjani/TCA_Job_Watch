@@ -708,6 +708,20 @@ kbd { font-family: var(--mono); font-size: 0.78em; padding: 1px 6px; border-radi
 .status-select.st-maybe { background-color: color-mix(in srgb, var(--signal-soft) 14%, var(--surface)); }
 .archive-link { margin-left: auto; }
 
+/* ================= pay ================= */
+.pay { display: inline-flex; align-items: baseline; gap: 5px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pay-posted { color: var(--ok); }
+.pay-est { color: var(--fg); }
+.est { font-family: var(--mono); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--signal); border: 1px solid color-mix(in srgb, var(--signal-soft) 45%, var(--line)); border-radius: 6px; padding: 1px 5px; }
+.pay-fine { font-size: 0.72rem; line-height: 1.45; color: var(--muted); margin: 4px 0 0; }
+.pay-fine-block { margin-top: 10px; }
+.pay-inline { margin-left: 8px; font-size: 0.82rem; }
+.sc-pay { margin: -2px 0 0; font-size: 1.02rem; }
+.sc-fine { margin-top: auto; padding-top: 6px; }
+.job-pay { margin-top: 8px; display: grid; gap: 2px; font-size: 1.02rem; max-width: 70ch; }
+.typical-pay { display: grid; gap: 4px; margin-top: 4px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: 0.86rem; }
+.typical-pay .linklike { justify-self: start; }
+
 /* ================= application kit ================= */
 .kit { margin-top: 20px; display: grid; gap: 16px; }
 .kit-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; }

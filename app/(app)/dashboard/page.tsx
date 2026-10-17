@@ -10,6 +10,7 @@ import { WeeklyColumns } from "@/components/charts/WeeklyColumns";
 import { TriageLauncher, type DeckJob } from "@/components/Triage";
 import { ApplyBoard, type BoardJob } from "@/components/ApplyBoard";
 import { isDemoEmail } from "@/lib/demo";
+import { payFor, payView } from "@/lib/pay/estimate";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -17,8 +18,15 @@ const APPLIED = new Set(["applied", "interviewing", "offer", "rejected", "withdr
 const INTERVIEWED = new Set(["interviewing", "offer"]);
 const RESPONDED = new Set(["interviewing", "offer", "rejected"]);
 const WEEK = 7 * 86400 * 1000;
-const BOARD_COLS = "id, title, company, location, salary, job_url, found_at, status, updated_at";
-type BoardRow = Omit<BoardJob, "apply_by"> & { status: string; updated_at: string; apply_by?: string | null };
+const BOARD_COLS = "id, alert_id, title, company, location, salary, job_url, found_at, status, updated_at, pay_hint";
+type BoardRow = Omit<BoardJob, "apply_by" | "pay"> & {
+  alert_id: string | null;
+  salary: string | null;
+  status: string;
+  updated_at: string;
+  pay_hint: string | null;
+  apply_by?: string | null;
+};
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ flash?: string }> }) {
   const { flash } = await searchParams;
@@ -82,6 +90,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const alertList = alerts ?? [];
   const roleById = new Map(alertList.map((a) => [a.id, a.role]));
+  const countryById = new Map(alertList.map((a) => [a.id, a.country]));
   const snippetOf = (d: string | null) => {
     if (!d) return null;
     const clean = d.replace(/\\([\\`*_{}[\]()#+\-.!>|~])/g, "$1").replace(/[*_#>]+/g, "").replace(/\s+/g, " ").trim();
@@ -100,11 +109,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     job_url: j.job_url,
     snippet: snippetOf(j.description),
     alertRole: j.alert_id ? roleById.get(j.alert_id) ?? null : null,
+    pay: payView({ ...j, country: j.alert_id ? countryById.get(j.alert_id) : null }),
   }));
   const boardRows = board ?? [];
   const toBoard = (j: BoardRow): BoardJob => ({
-    id: j.id, title: j.title, company: j.company, location: j.location, salary: j.salary,
+    id: j.id, title: j.title, company: j.company, location: j.location,
     job_url: j.job_url, found_at: j.found_at, apply_by: j.apply_by ?? null,
+    pay: payView({ ...j, country: j.alert_id ? countryById.get(j.alert_id) : null }),
   });
   // Super Apply first (most urgent timer on top), then To apply, then Maybe.
   const superJobs = boardRows
@@ -114,6 +125,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const toApply = boardRows.filter((j) => j.status === "saved" && !j.apply_by).map(toBoard);
   const maybe = boardRows.filter((j) => j.status === "maybe").map(toBoard);
   const showBoard = boardRows.length > 0 || (archived ?? 0) > 0;
+  const pays = [...(fresh ?? []), ...boardRows]
+    .map((j) => payFor({ ...j, country: j.alert_id ? countryById.get(j.alert_id) : null }))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p));
+  const mids = pays.map((p) => (p.annual[0] + p.annual[1]) / 2).sort((a, b) => a - b);
+  const typicalPay = mids.length ? mids[Math.floor(mids.length / 2)] : null;
+  const postedCount = pays.filter((p) => p.kind === "posted").length;
   const hasChannel = Boolean(profile?.telegram_chat_id || profile?.discord_webhook_url);
   const checklist = [
     { done: alertList.length > 0, text: "Create your first alert", href: "/onboarding" },
@@ -167,7 +184,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         />
         <StatTile label="Applied" value={applied} note={`${offers} offer${offers === 1 ? "" : "s"}`} />
         <StatTile label="Interview rate" value={pct(interviewed, applied)} suffix="%" note={`${interviewed} of ${applied} applications`} />
-        <StatTile label="Response rate" value={pct(responded, applied)} suffix="%" note="Any reply, yes or no" />
+        {typicalPay ? (
+          <StatTile
+            label="Typical pay in your matches"
+            value={Math.round(typicalPay / 1000)}
+            prefix="$"
+            suffix="k"
+            note={`${postedCount} posted · ${pays.length - postedCount} est. · per year`}
+          />
+        ) : (
+          <StatTile label="Response rate" value={pct(responded, applied)} suffix="%" note="Any reply, yes or no" />
+        )}
       </div>
 
       <div className="dash-grid" style={{ marginTop: 20 }}>

@@ -77,7 +77,7 @@ export async function fetchDescription(_prev: JobFormState, form: FormData): Pro
   const { supabase, user } = await requireUser();
   if (isDemoEmail(user.email)) return { error: DEMO_MESSAGE };
   const id = String(form.get("id") ?? "");
-  const { data: job } = await supabase.from("job_matches").select("job_url, title, company, location").eq("id", id).single();
+  const { data: job } = await supabase.from("job_matches").select("job_url, title, company, location, salary").eq("id", id).single();
   if (!job) return { error: "Job not found." };
   const d = await fetchJobDetails(job.job_url);
   if (!d.description) return { error: d.error ?? "No description found on that page. Paste it instead." };
@@ -88,6 +88,7 @@ export async function fetchDescription(_prev: JobFormState, form: FormData): Pro
       title: job.title ?? d.title?.slice(0, 300) ?? null,
       company: job.company ?? d.company?.slice(0, 300) ?? null,
       location: job.location ?? d.location?.slice(0, 300) ?? null,
+      salary: job.salary ?? d.salary?.slice(0, 120) ?? null,
     })
     .eq("id", id);
   revalidatePath(`/jobs/${id}`);
@@ -114,6 +115,7 @@ export async function addJob(_prev: JobFormState, form: FormData): Promise<JobFo
       title: clip(form.get("title"), 300) ?? d.title?.slice(0, 300) ?? null,
       company: clip(form.get("company"), 300) ?? d.company?.slice(0, 300) ?? null,
       location: d.location?.slice(0, 300) ?? null,
+      salary: d.salary?.slice(0, 120) ?? null,
       description: d.description?.slice(0, 60000) ?? null,
       site: checked.hostname.replace(/^www\./, "").slice(0, 50),
       status: validStatus(status) ? status : "saved",

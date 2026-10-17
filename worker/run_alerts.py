@@ -294,8 +294,32 @@ def due(alert, now_utc):
     return True
 
 
+EST_NOTE = ("(est.) = market estimate for similar roles in the area (Job Bank / U.S. BLS), "
+            "not from the employer. Actual pay can vary a lot.")
+
+
+def annotate_pay(alert, matches):
+    """Posted pay, or an estimate marked "(est.)", from the site's /api/pay."""
+    if not SITE_URL or not matches:
+        return
+    jobs = [{"title": m.get("title"), "location": m.get("location"), "salary": m.get("salary"),
+             "pay_hint": m.get("pay_hint"), "country": alert.get("country")} for m in matches]
+    try:
+        r = requests.post(f"{SITE_URL}/api/pay", json={"jobs": jobs}, timeout=20)
+        pays = r.json().get("pay") if r.ok else None
+    except Exception:
+        pays = None
+    for m, p in zip(matches, pays or []):
+        if p:
+            m["pay_text"] = p["text"] + (" (est.)" if p.get("kind") == "estimate" else "")
+
+
+def has_estimate(matches):
+    return any(str(m.get("pay_text") or "").endswith("(est.)") for m in matches)
+
+
 def job_line(m, rich=False):
-    bits = [b for b in [m.get("company"), m.get("location"), m.get("salary")] if b]
+    bits = [b for b in [m.get("company"), m.get("location"), m.get("pay_text") or m.get("salary")] if b]
     track = f"{SITE_URL}/jobs/{m['id']}" if SITE_URL else ""
     if rich:  # Discord markdown; <> stops link previews
         out = f"**{m.get('title') or 'New role'}**\n{' · '.join(bits)}\nApply: <{m['job_url']}>"
@@ -329,6 +353,8 @@ def send_telegram(chat_id, alert, matches):
     if not (TELEGRAM_BOT_TOKEN and chat_id):
         return False
     parts = [header(alert, len(matches))] + [job_line(m) for m in matches]
+    if has_estimate(matches):
+        parts.append(EST_NOTE)
     if SITE_URL:
         parts.append(f"Manage alerts: {SITE_URL}/alerts")
     ok = True
@@ -346,6 +372,8 @@ def send_discord(webhook, alert, matches):
     if not webhook:
         return False
     parts = [f"**{header(alert, len(matches))}**"] + [job_line(m, rich=True) for m in matches]
+    if has_estimate(matches):
+        parts.append(f"-# {EST_NOTE}")
     ok = True
     for text in chunks(parts, 1900):
         r = requests.post(webhook, json={"username": APP_NAME, "content": text}, timeout=20)
@@ -356,7 +384,7 @@ def send_discord(webhook, alert, matches):
 def email_html(alert, matches):
     rows = []
     for m in matches:
-        bits = " · ".join(html.escape(str(b)) for b in [m.get("company"), m.get("location"), m.get("salary")] if b)
+        bits = " · ".join(html.escape(str(b)) for b in [m.get("company"), m.get("location"), m.get("pay_text") or m.get("salary")] if b)
         track = f'<a href="{html.escape(SITE_URL)}/jobs/{m["id"]}" style="color:#065f55">Track it</a>' if SITE_URL else ""
         rows.append(
             f'<tr><td style="padding:14px 0;border-top:1px solid #e2e9e8">'
@@ -365,7 +393,8 @@ def email_html(alert, matches):
             f'<a href="{html.escape(m["job_url"])}" style="background:#0d9488;color:#fff;padding:7px 13px;border-radius:999px;text-decoration:none;font-size:13px;font-weight:600">Apply now</a>'
             f'&nbsp;&nbsp;{track}</td></tr>'
         )
-    manage = f'<p style="color:#536167;font-size:13px;margin-top:20px">Manage your alerts at <a href="{html.escape(SITE_URL)}/alerts" style="color:#065f55">{html.escape(SITE_URL)}</a></p>' if SITE_URL else ""
+    fine = f'<p style="color:#7a8a8f;font-size:11px;margin-top:16px">{html.escape(EST_NOTE)}</p>' if has_estimate(matches) else ""
+    manage = fine + f'<p style="color:#536167;font-size:13px;margin-top:20px">Manage your alerts at <a href="{html.escape(SITE_URL)}/alerts" style="color:#065f55">{html.escape(SITE_URL)}</a></p>' if SITE_URL else ""
     return (
         '<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:600px;margin:auto;padding:20px;color:#0d1b20">'
         f'<h2 style="font-size:20px;margin:0 0 6px">{html.escape(header(alert, len(matches)))}</h2>'
@@ -382,7 +411,7 @@ def send_email(to, alert, matches):
         subject = f"New role: {m.get('title') or alert['role']}" + (f" at {m['company']}" if m.get("company") else "")
     else:
         subject = header(alert, n).split(" ", 1)[1]
-    text = "\n\n".join([header(alert, n)] + [job_line(m) for m in matches])
+    text = "\n\n".join([header(alert, n)] + [job_line(m) for m in matches] + ([EST_NOTE] if has_estimate(matches) else []))
     body = email_html(alert, matches)
     try:
         if SMTP_USER and SMTP_PASS:
@@ -420,6 +449,7 @@ def phase_deliver():
         matches = a.get("matches") or []
         if not matches or not due(a, now):
             continue
+        annotate_pay(a, matches)
         results = {}
         for ch in a.get("channels") or []:
             if ch == "email":

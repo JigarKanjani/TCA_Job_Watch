@@ -1,4 +1,5 @@
 import "server-only";
+import { formatRange, type Period } from "@/lib/pay/parse";
 
 // Fetches title / company / location / description for a job posting URL.
 // Order: Firecrawl (if FIRECRAWL_API_KEY is set) → schema.org JobPosting
@@ -10,6 +11,8 @@ export type JobDetails = {
   company?: string;
   location?: string;
   description?: string;
+  /** Pay from the posting's structured data (schema.org baseSalary). */
+  salary?: string;
   via: "firecrawl" | "jsonld" | "html" | "meta" | "none";
   error?: string;
 };
@@ -97,6 +100,20 @@ function ldLocation(job: Ld): string | undefined {
   if (job.jobLocationType === "TELECOMMUTE") return "Remote";
 }
 
+const UNIT: Record<string, Period> = { YEAR: "year", HOUR: "hour", MONTH: "month", WEEK: "week", DAY: "day" };
+
+function ldSalary(job: Ld): string | undefined {
+  const base = job.baseSalary as Ld | undefined;
+  const v = (base?.value ?? base) as Ld | undefined;
+  if (!v || typeof v !== "object") return;
+  const n = (x: unknown) => (typeof x === "number" ? x : typeof x === "string" ? Number(x.replace(/[^\d.]/g, "")) : NaN);
+  const min = n(v.minValue ?? v.value);
+  const max = n(v.maxValue ?? v.value ?? v.minValue);
+  if (!Number.isFinite(min) || min <= 0) return;
+  const unit = UNIT[String(v.unitText ?? base?.unitText ?? "YEAR").toUpperCase()] ?? "year";
+  return formatRange(min, Number.isFinite(max) && max >= min ? max : min, unit);
+}
+
 function fromJsonLd(html: string): JobDetails | undefined {
   const blocks = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) ?? [];
   for (const block of blocks) {
@@ -110,6 +127,7 @@ function fromJsonLd(html: string): JobDetails | undefined {
         company: typeof org?.name === "string" ? decode(org.name) : undefined,
         location: ldLocation(job),
         description: typeof job.description === "string" ? htmlToText(decode(job.description)) : undefined,
+        salary: ldSalary(job),
         via: "jsonld",
       };
     } catch {
@@ -171,14 +189,14 @@ export async function fetchJobDetails(rawUrl: string): Promise<JobDetails> {
   if (ld?.description) return ld;
 
   const fc = await viaFirecrawl(url);
-  if (fc) return { ...fc, title: ld?.title ?? fc.title, company: ld?.company, location: ld?.location };
+  if (fc) return { ...fc, title: ld?.title ?? fc.title, company: ld?.company, location: ld?.location, salary: ld?.salary };
 
   if (html) {
     const markup = fromKnownMarkup(html);
     const title = ld?.title ?? meta(html, "og:title") ?? html.match(/<title>([^<]+)<\/title>/i)?.[1]?.trim();
-    if (markup) return { title, company: ld?.company, location: ld?.location, description: markup, via: "html" };
+    if (markup) return { title, company: ld?.company, location: ld?.location, salary: ld?.salary, description: markup, via: "html" };
     const desc = meta(html, "og:description") ?? meta(html, "description");
-    if (title || desc) return { title, company: ld?.company, location: ld?.location, description: desc, via: "meta" };
+    if (title || desc) return { title, company: ld?.company, location: ld?.location, salary: ld?.salary, description: desc, via: "meta" };
   }
   return {
     via: "none",

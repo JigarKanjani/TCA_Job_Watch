@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { moveJob } from "@/app/(app)/dashboard/actions";
 import { FindJobsButton } from "./FindJobsButton";
+import { PayFinePrint, PayTag } from "./PayTag";
+import type { PayView } from "@/lib/pay/parse";
 
 export type DeckJob = {
   id: string;
@@ -20,6 +22,7 @@ export type DeckJob = {
   job_url: string;
   snippet: string | null;
   alertRole: string | null;
+  pay: PayView | null;
 };
 
 type Decision = "apply" | "super" | "maybe" | "discard";
@@ -379,14 +382,19 @@ function TriageModal({
                 </div>
                 <h3 className="sc-title">{top.title ?? "Untitled role"}</h3>
                 <p className="sc-company">{top.company ?? "Company not listed"}</p>
+                {top.pay && (
+                  <p className="sc-pay">
+                    <PayTag pay={top.pay} />
+                  </p>
+                )}
                 <div className="meta">
                   {top.location && <span className="tag tag-muted">📍 {top.location}</span>}
                   {top.is_remote && <span className="tag tag-muted">Remote</span>}
-                  {top.salary && <span className="tag tag-muted">💰 {top.salary}</span>}
                   {top.date_posted && <span className="tag tag-muted">Posted {top.date_posted}</span>}
                 </div>
                 {top.snippet && <p className="sc-snippet">{top.snippet}</p>}
                 {top.alertRole && <p className="hint">Matched your “{top.alertRole}” alert</p>}
+                {top.pay?.kind === "estimate" && <PayFinePrint short className="sc-fine" />}
               </div>
             </>
           ) : (

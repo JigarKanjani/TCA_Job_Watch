@@ -13,6 +13,8 @@ export type DeliverJob = {
   location: string | null;
   salary: string | null;
   job_url: string;
+  /** Posted pay, or an estimate ending in "(est.)". */
+  pay?: string | null;
 };
 
 type AlertInfo = { role: string; frequency: string };
@@ -27,7 +29,9 @@ export async function siteOrigin(): Promise<string> {
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-const bits = (m: DeliverJob) => [m.company, m.location, m.salary].filter(Boolean).join(" · ");
+const bits = (m: DeliverJob) => [m.company, m.location, m.pay ?? m.salary].filter(Boolean).join(" · ");
+const EST_NOTE = "(est.) = market estimate for similar roles in the area (Job Bank / U.S. BLS), not from the employer. Actual pay can vary a lot.";
+const hasEstimate = (jobs: DeliverJob[]) => jobs.some((m) => m.pay?.endsWith("(est.)"));
 
 function header(alert: AlertInfo, n: number) {
   const s = n === 1 ? "" : "s";
@@ -75,7 +79,9 @@ function emailHtml(alert: AlertInfo, jobs: DeliverJob[], site: string, note?: st
     `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:600px;margin:auto;padding:20px;color:#0d1b20">` +
     `<h2 style="font-size:20px;margin:0 0 6px">${esc(header(alert, jobs.length))}</h2>` +
     (note ? `<p style="color:#536167;font-size:14px;margin:0 0 8px">${esc(note)}</p>` : "") +
-    `<table style="width:100%;border-collapse:collapse">${rows}</table>${sort}</div>`
+    `<table style="width:100%;border-collapse:collapse">${rows}</table>${sort}` +
+    (hasEstimate(jobs) ? `<p style="color:#7a8a8f;font-size:11px;margin-top:18px">${esc(EST_NOTE)}</p>` : "") +
+    `</div>`
   );
 }
 
@@ -99,19 +105,19 @@ export async function deliverMatches(opts: {
           jobs.length === 1
             ? `New role: ${jobs[0].title ?? alert.role}${jobs[0].company ? ` at ${jobs[0].company}` : ""}`
             : head.split(" ").slice(1).join(" ");
-        const text = [head, ...(note ? [note] : []), ...jobs.map((m) => line(m, site))].join("\n\n");
+        const text = [head, ...(note ? [note] : []), ...jobs.map((m) => line(m, site)), ...(hasEstimate(jobs) ? [EST_NOTE] : [])].join("\n\n");
         results.email = (await sendEmail(to.email, subject, emailHtml(alert, jobs, site, note), text)).ok;
       }
       if (ch === "telegram" && to.telegram_chat_id) {
         let ok = true;
-        for (const text of chunks([head, ...(note ? [note] : []), ...jobs.map((m) => line(m, site))], 3800)) {
+        for (const text of chunks([head, ...(note ? [note] : []), ...jobs.map((m) => line(m, site)), ...(hasEstimate(jobs) ? [EST_NOTE] : [])], 3800)) {
           ok = (await sendTelegram(to.telegram_chat_id, text)).ok && ok;
         }
         results.telegram = ok;
       }
       if (ch === "discord" && to.discord_webhook_url) {
         let ok = true;
-        for (const text of chunks([`**${head}**`, ...(note ? [note] : []), ...jobs.map((m) => line(m, site, true))], 1900)) {
+        for (const text of chunks([`**${head}**`, ...(note ? [note] : []), ...jobs.map((m) => line(m, site, true)), ...(hasEstimate(jobs) ? [`-# ${EST_NOTE}`] : [])], 1900)) {
           ok = (await sendDiscord(to.discord_webhook_url, text)).ok && ok;
         }
         results.discord = ok;

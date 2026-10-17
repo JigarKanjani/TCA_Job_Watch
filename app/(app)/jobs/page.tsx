@@ -7,6 +7,8 @@ import type { Alert, DocumentRow, JobMatch } from "@/lib/types";
 import { Flash } from "@/components/Flash";
 import { StatusSelect } from "@/components/StatusSelect";
 import { FindJobsButton } from "@/components/FindJobsButton";
+import { PayFinePrint, PayTag } from "@/components/PayTag";
+import { payView } from "@/lib/pay/estimate";
 
 export const metadata: Metadata = { title: "Job log" };
 
@@ -18,7 +20,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
 
   let query = supabase
     .from("job_matches")
-    .select("id, alert_id, job_url, title, company, location, site, salary, found_at, notified_at, status, applied_at, resume_doc_id, source")
+    .select("id, alert_id, job_url, title, company, location, site, salary, found_at, notified_at, status, applied_at, resume_doc_id, source, pay_hint")
     .order("found_at", { ascending: false })
       .order("id", { ascending: true })
     .limit(200);
@@ -34,13 +36,14 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
 
   const [{ data: jobs }, { data: alerts }, { data: docs }, { count: archivedCount }] = await Promise.all([
     query.returns<JobMatch[]>(),
-    supabase.from("alerts").select("id, role").returns<Pick<Alert, "id" | "role">[]>(),
+    supabase.from("alerts").select("id, role, country").returns<Pick<Alert, "id" | "role" | "country">[]>(),
     supabase.from("documents").select("id, name").returns<Pick<DocumentRow, "id" | "name">[]>(),
     supabase.from("job_matches").select("id", { count: "exact", head: true }).eq("status", "not_interested"),
   ]);
   const alertName = new Map((alerts ?? []).map((a) => [a.id, a.role]));
   const docName = new Map((docs ?? []).map((d) => [d.id, d.name]));
-  const list = jobs ?? [];
+  const alertCountry = new Map((alerts ?? []).map((a) => [a.id, a.country]));
+  const list = (jobs ?? []).map((j) => ({ ...j, pay: payView({ ...j, country: j.alert_id ? alertCountry.get(j.alert_id) : null }) }));
   const filtered = Boolean(params.status || params.alert || params.q);
 
   return (
@@ -111,7 +114,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
                       {j.alert_id && alertName.get(j.alert_id) ? ` · via “${alertName.get(j.alert_id)}”` : j.source === "manual" ? " · added by you" : ""}
                     </div>
                   </td>
-                  <td className="small">{j.location ?? "—"}{j.salary ? <div className="muted">{j.salary}</div> : null}</td>
+                  <td className="small">{j.location ?? "—"}{j.pay && <div><PayTag pay={j.pay} className="pay-inline" /></div>}</td>
                   <td className="small nowrap">{shortDate(j.found_at)}{j.notified_at ? <div className="muted">sent</div> : j.source === "alert" ? <div className="muted">queued</div> : null}</td>
                   <td><StatusSelect id={j.id} status={j.status} /></td>
                   <td className="small">{j.resume_doc_id ? docName.get(j.resume_doc_id) ?? "—" : <span className="muted">—</span>}</td>
@@ -121,6 +124,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
           </table>
         </div>
       )}
+      {list.some((j) => j.pay?.kind === "estimate") && <PayFinePrint className="pay-fine-block" />}
       {list.length === 200 && <p className="hint" style={{ marginTop: 10 }}>Showing the 200 most recent. Use the filters to narrow it down.</p>}
       <p className="hint" style={{ marginTop: 10 }}>Stages: {STATUSES.map((s) => labelFor(STATUSES, s.value)).join(" → ")}</p>
     </>

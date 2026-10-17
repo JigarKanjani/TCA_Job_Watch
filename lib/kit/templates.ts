@@ -26,6 +26,7 @@ export type KitContext = {
   score: number;
   achievements: string[];
   sections: Section[];
+  pay: string | null;
   ai: boolean;
 };
 
@@ -240,6 +241,7 @@ export function interviewPrompt(c: KitContext, o: InterviewOptions, notes = ""):
     `Company: ${c.company}`,
     ...(c.location ? [`Location: ${c.location}`] : []),
     `Posting: ${c.jobUrl}`,
+    ...(c.pay ? [`Pay: ${c.pay}. Ask me about salary expectations at a realistic point, and coach me on answering with a range.`] : []),
     "",
     "Job description:",
     c.jd ? `"""\n${c.jd.slice(0, 9000).trim()}\n"""` : "[Not included: I'll paste it, or ask me for it.]",
