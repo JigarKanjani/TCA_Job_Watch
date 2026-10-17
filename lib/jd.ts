@@ -2,7 +2,7 @@ import "server-only";
 import { formatRange, type Period } from "@/lib/pay/parse";
 
 // Fetches title / company / location / description for a job posting URL.
-// Order: Firecrawl (if FIRECRAWL_API_KEY is set) → schema.org JobPosting
+// Order: schema.org JobPosting
 // JSON-LD (Greenhouse, Lever, Workday, Indeed and most ATS pages embed it) →
 // known page markup (LinkedIn guest view) → <meta> tags.
 
@@ -13,7 +13,7 @@ export type JobDetails = {
   description?: string;
   /** Pay from the posting's structured data (schema.org baseSalary). */
   salary?: string;
-  via: "firecrawl" | "jsonld" | "html" | "meta" | "none";
+  via: "jsonld" | "html" | "reader" | "meta" | "none";
   error?: string;
 };
 
@@ -148,21 +148,19 @@ function fromKnownMarkup(html: string): string | undefined {
   }
 }
 
-async function viaFirecrawl(url: string): Promise<JobDetails | undefined> {
-  const key = process.env.FIRECRAWL_API_KEY;
-  if (!key) return;
+// Free, keyless fallback for pages that need a browser to render: Jina
+// Reader (open source, https://github.com/jina-ai/reader). LinkedIn refuses
+// it, but LinkedIn's guest pages are already read from their markup above.
+async function viaReader(url: string): Promise<JobDetails | undefined> {
+  if (/(^|\.)linkedin\.com$/i.test(new URL(url).hostname)) return;
   try {
-    const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }),
-      signal: AbortSignal.timeout(25000),
-    });
+    const res = await fetch(`https://r.jina.ai/${url}`, { headers: { Accept: "text/plain" }, signal: AbortSignal.timeout(20000) });
     if (!res.ok) return;
-    const body = (await res.json()) as { data?: { markdown?: string; metadata?: { title?: string; ogTitle?: string } } };
-    const md = body.data?.markdown?.trim();
-    if (!md) return;
-    return { title: body.data?.metadata?.ogTitle ?? body.data?.metadata?.title, description: md.slice(0, 60000), via: "firecrawl" };
+    const body = await res.text();
+    const title = body.match(/^Title:\s*(.+)$/m)?.[1]?.trim();
+    const md = (body.split(/^Markdown Content:\s*$/m)[1] ?? "").trim();
+    if (md.length < 200) return;
+    return { title, description: md.slice(0, 60000), via: "reader" };
   } catch {
     return;
   }
@@ -182,19 +180,20 @@ export async function fetchJobDetails(rawUrl: string): Promise<JobDetails> {
     });
     if (res.ok) html = (await res.text()).slice(0, 2_000_000);
   } catch {
-    /* fall through to Firecrawl */
+    /* fall through to the reader */
   }
 
   const ld = html ? fromJsonLd(html) : undefined;
   if (ld?.description) return ld;
 
-  const fc = await viaFirecrawl(url);
-  if (fc) return { ...fc, title: ld?.title ?? fc.title, company: ld?.company, location: ld?.location, salary: ld?.salary };
+  const title = html ? ld?.title ?? meta(html, "og:title") ?? html.match(/<title>([^<]+)<\/title>/i)?.[1]?.trim() : ld?.title;
+  const markup = html ? fromKnownMarkup(html) : undefined;
+  if (markup) return { title, company: ld?.company, location: ld?.location, salary: ld?.salary, description: markup, via: "html" };
+
+  const read = await viaReader(url);
+  if (read) return { ...read, title: title ?? read.title, company: ld?.company, location: ld?.location, salary: ld?.salary };
 
   if (html) {
-    const markup = fromKnownMarkup(html);
-    const title = ld?.title ?? meta(html, "og:title") ?? html.match(/<title>([^<]+)<\/title>/i)?.[1]?.trim();
-    if (markup) return { title, company: ld?.company, location: ld?.location, salary: ld?.salary, description: markup, via: "html" };
     const desc = meta(html, "og:description") ?? meta(html, "description");
     if (title || desc) return { title, company: ld?.company, location: ld?.location, salary: ld?.salary, description: desc, via: "meta" };
   }

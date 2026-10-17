@@ -97,10 +97,10 @@ export function SignalField({ seed = 1729, labelCount = 8, onIgnite }: Props) {
     function readColors() {
       const cs = getComputedStyle(document.documentElement);
       return {
-        accent: rgb(cs.getPropertyValue("--accent"), [13, 148, 136]),
-        signal: rgb(cs.getPropertyValue("--signal-soft"), [232, 130, 12]),
-        muted: rgb(cs.getPropertyValue("--muted"), [83, 97, 103]),
-        line: rgb(cs.getPropertyValue("--line"), [226, 233, 232]),
+        accent: rgb(cs.getPropertyValue("--accent"), [219, 98, 77]),
+        signal: rgb(cs.getPropertyValue("--signal-soft"), [245, 158, 11]),
+        muted: rgb(cs.getPropertyValue("--muted"), [75, 85, 99]),
+        line: rgb(cs.getPropertyValue("--line"), [239, 228, 221]),
       };
     }
 

@@ -38,7 +38,6 @@ SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "465") or 465)
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
-RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "") or SMTP_USER
 
 RESULTS_PER_SEARCH = 30
@@ -385,25 +384,25 @@ def email_html(alert, matches):
     rows = []
     for m in matches:
         bits = " · ".join(html.escape(str(b)) for b in [m.get("company"), m.get("location"), m.get("pay_text") or m.get("salary")] if b)
-        track = f'<a href="{html.escape(SITE_URL)}/jobs/{m["id"]}" style="color:#065f55">Track it</a>' if SITE_URL else ""
+        track = f'<a href="{html.escape(SITE_URL)}/jobs/{m["id"]}" style="color:#a8402f">Track it</a>' if SITE_URL else ""
         rows.append(
-            f'<tr><td style="padding:14px 0;border-top:1px solid #e2e9e8">'
-            f'<a href="{html.escape(m["job_url"])}" style="color:#0d1b20;font-weight:600;font-size:16px;text-decoration:none">{html.escape(m.get("title") or "New role")}</a>'
-            f'<div style="color:#536167;font-size:14px;margin:4px 0 8px">{bits}</div>'
-            f'<a href="{html.escape(m["job_url"])}" style="background:#0d9488;color:#fff;padding:7px 13px;border-radius:999px;text-decoration:none;font-size:13px;font-weight:600">Apply now</a>'
+            f'<tr><td style="padding:14px 0;border-top:1px solid #efe4dd">'
+            f'<a href="{html.escape(m["job_url"])}" style="color:#111827;font-weight:600;font-size:16px;text-decoration:none">{html.escape(m.get("title") or "New role")}</a>'
+            f'<div style="color:#4b5563;font-size:14px;margin:4px 0 8px">{bits}</div>'
+            f'<a href="{html.escape(m["job_url"])}" style="background:#db624d;color:#fff;padding:7px 13px;border-radius:999px;text-decoration:none;font-size:13px;font-weight:600">Apply now</a>'
             f'&nbsp;&nbsp;{track}</td></tr>'
         )
     fine = f'<p style="color:#7a8a8f;font-size:11px;margin-top:16px">{html.escape(EST_NOTE)}</p>' if has_estimate(matches) else ""
-    manage = fine + f'<p style="color:#536167;font-size:13px;margin-top:20px">Manage your alerts at <a href="{html.escape(SITE_URL)}/alerts" style="color:#065f55">{html.escape(SITE_URL)}</a></p>' if SITE_URL else ""
+    manage = fine + f'<p style="color:#4b5563;font-size:13px;margin-top:20px">Manage your alerts at <a href="{html.escape(SITE_URL)}/alerts" style="color:#a8402f">{html.escape(SITE_URL)}</a></p>' if SITE_URL else ""
     return (
-        '<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:600px;margin:auto;padding:20px;color:#0d1b20">'
+        '<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:600px;margin:auto;padding:20px;color:#111827">'
         f'<h2 style="font-size:20px;margin:0 0 6px">{html.escape(header(alert, len(matches)))}</h2>'
         f'<table style="width:100%;border-collapse:collapse">{"".join(rows)}</table>{manage}</div>'
     )
 
 
 def send_email(to, alert, matches):
-    if not to or not (RESEND_API_KEY or (SMTP_USER and SMTP_PASS)):
+    if not to or not (SMTP_USER and SMTP_PASS):
         return False
     n = len(matches)
     if alert.get("frequency") == "instant" and n == 1:
@@ -414,28 +413,20 @@ def send_email(to, alert, matches):
     text = "\n\n".join([header(alert, n)] + [job_line(m) for m in matches] + ([EST_NOTE] if has_estimate(matches) else []))
     body = email_html(alert, matches)
     try:
-        if SMTP_USER and SMTP_PASS:
-            msg = EmailMessage()
-            msg["Subject"], msg["From"], msg["To"] = subject, EMAIL_FROM, to
-            msg.set_content(text)
-            msg.add_alternative(body, subtype="html")
-            if SMTP_PORT == 465:
-                with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ssl.create_default_context(), timeout=30) as s:
-                    s.login(SMTP_USER, SMTP_PASS)
-                    s.send_message(msg)
-            else:
-                with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as s:
-                    s.starttls(context=ssl.create_default_context())
-                    s.login(SMTP_USER, SMTP_PASS)
-                    s.send_message(msg)
-            return True
-        r = requests.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-            json={"from": EMAIL_FROM or f"{APP_NAME} <onboarding@resend.dev>", "to": to, "subject": subject, "html": body, "text": text},
-            timeout=30,
-        )
-        return r.ok
+        msg = EmailMessage()
+        msg["Subject"], msg["From"], msg["To"] = subject, EMAIL_FROM, to
+        msg.set_content(text)
+        msg.add_alternative(body, subtype="html")
+        if SMTP_PORT == 465:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ssl.create_default_context(), timeout=30) as s:
+                s.login(SMTP_USER, SMTP_PASS)
+                s.send_message(msg)
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as s:
+                s.starttls(context=ssl.create_default_context())
+                s.login(SMTP_USER, SMTP_PASS)
+                s.send_message(msg)
+        return True
     except Exception:
         return False
 

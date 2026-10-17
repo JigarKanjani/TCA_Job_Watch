@@ -37,7 +37,7 @@ export default async function Home({
   ) : auth.google ? (
     <GoogleSignInButton next="/onboarding" className="btn btn-google btn-glow" />
   ) : (
-    <Link className="btn btn-google btn-glow" href="/login?mode=signup">Get started free →</Link>
+    <Link className="btn btn-accent btn-glow" href="/login?mode=signup">Get started free →</Link>
   );
 
   return (
@@ -61,7 +61,7 @@ export default async function Home({
             <h1 className="headline" aria-label={HEADLINE}>
               {HEADLINE.split(" ").map((w, i, all) => (
                 <Fragment key={i}>
-                  <span className="word" style={{ animationDelay: `${120 + i * 55}ms` }} aria-hidden="true">
+                  <span className="word" style={{ animationDelay: `${120 + i * 55}ms`, ["--i" as string]: i, ["--n" as string]: all.length }} aria-hidden="true">
                     {w}
                   </span>
                   {i < all.length - 1 ? " " : null}

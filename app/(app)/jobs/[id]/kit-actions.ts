@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { requireProfile, requireUser } from "@/lib/auth";
 import { DEMO_MESSAGE, isDemoEmail } from "@/lib/demo";
 import { analyzeFit, parseContact, splitSections, topAchievements } from "@/lib/kit/analyze";
-import { aiEnabled, aiWrite, type AiKind } from "@/lib/kit/ai";
 import { findEmails, type FinderInput, type FinderResult } from "@/lib/kit/emailFinder";
 import { documentText } from "@/lib/kit/resumeText";
 import { payView } from "@/lib/pay/estimate";
@@ -62,26 +61,11 @@ async function buildContext(jobId: string, docId: string | null): Promise<KitCon
     achievements: topAchievements(resume, fit.jdSkills),
     sections: splitSections(resume),
     pay: pay ? `${pay.text}${pay.kind === "estimate" ? ` (estimate: ${pay.note})` : " (from the posting)"}` : null,
-    ai: aiEnabled(),
   };
 }
 
 export async function loadKit(jobId: string, docId: string | null) {
   return buildContext(jobId, docId);
-}
-
-export async function aiDraft(
-  jobId: string,
-  docId: string | null,
-  kind: AiKind,
-  extra: { recipient?: string; when?: string; topic?: string },
-): Promise<{ text: string } | { error: string }> {
-  const { user } = await requireUser();
-  if (isDemoEmail(user.email)) return { error: "AI writing is off in the demo. Create a free account to use it." };
-  const ctx = await buildContext(jobId, docId);
-  if ("error" in ctx) return ctx;
-  const clip = (s?: string) => (s ? s.slice(0, 200) : undefined);
-  return aiWrite(kind, ctx, { recipient: clip(extra.recipient), when: clip(extra.when), topic: clip(extra.topic) });
 }
 
 export async function findRecipientEmail(input: FinderInput): Promise<FinderResult> {

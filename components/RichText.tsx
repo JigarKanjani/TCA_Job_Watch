@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 
-// Renders job-description text that may be Markdown (JobSpy, Firecrawl) or
+// Renders job-description text that may be Markdown (JobSpy, Jina Reader) or
 // plain text with "•" bullets (page scrapes). Builds React nodes only — no
 // HTML injection — handling headings, bullet lists, **bold** and *italic*.
 

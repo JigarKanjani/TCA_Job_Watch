@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { APP_NAME } from "@/lib/config";
 import { getUser } from "@/lib/supabase/server";
+import { LogoMark } from "./LogoMark";
 
 export async function SiteHeader() {
   const { user } = await getUser();
@@ -8,7 +9,7 @@ export async function SiteHeader() {
     <header className="bar">
       <div className="wrap bar-in">
         <Link href="/" className="brand">
-          <span className="mark" /> {APP_NAME}
+          <LogoMark /> {APP_NAME}
         </Link>
         <div className="bar-right">
           {user ? (

@@ -6,10 +6,10 @@ export type SendResult = { ok: true } | { ok: false; error: string };
 
 const fail = (error: string): SendResult => ({ ok: false, error });
 
-// ---------- Email (SMTP first, Resend as an alternative) ----------
+// ---------- Email (any SMTP server, e.g. a free Gmail account) ----------
 export function emailConfigured(): boolean {
   return Boolean(
-    (process.env.SMTP_USER && process.env.SMTP_PASS) || process.env.RESEND_API_KEY,
+    process.env.SMTP_USER && process.env.SMTP_PASS,
   );
 }
 
@@ -32,19 +32,7 @@ export async function sendEmail(
       await transport.sendMail({ from, to, subject, html, text });
       return { ok: true };
     }
-    if (process.env.RESEND_API_KEY) {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ from: from || `${APP_NAME} <onboarding@resend.dev>`, to, subject, html, text }),
-      });
-      if (!res.ok) return fail(`Resend rejected the email (${res.status}): ${await res.text()}`);
-      return { ok: true };
-    }
-    return fail("Email sending isn't set up yet. Add SMTP or Resend settings on Vercel.");
+    return fail("Email sending isn't set up yet. Add the SMTP settings on Vercel.");
   } catch (e) {
     return fail(`Couldn't send the email: ${(e as Error).message}`);
   }

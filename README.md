@@ -32,16 +32,22 @@ Browser ──> Next.js (Vercel) ──RLS──> Supabase  <──secret-gated 
 **Vercel** (Project → Settings → Environment Variables):
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL`,
 `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`,
-`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (or `RESEND_API_KEY`),
-optional `FIRECRAWL_API_KEY` (better job-description fetching and more email-pattern evidence),
-optional `ANTHROPIC_API_KEY` (+ `ANTHROPIC_MODEL`) for "Rewrite with AI" in the Application kit,
-optional `HUNTER_API_KEY` (free plan: 50 lookups/month) for verified recruiter emails,
-optional `DEMO_EMAIL` + `DEMO_PASSWORD` (enables the one-click read-only demo; writes are blocked
-in the database for that account).
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (a free Gmail account with an
+app password works), optional `DEMO_EMAIL` + `DEMO_PASSWORD` (enables the one-click read-only demo;
+writes are blocked in the database for that account).
 
 **GitHub Actions** (repo → Settings → Secrets and variables → Actions):
 secrets `WORKER_SECRET`, `TELEGRAM_BOT_TOKEN`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
-`EMAIL_FROM` (or `RESEND_API_KEY`); variable `SITE_URL`.
+`EMAIL_FROM`; variable `SITE_URL`.
+
+## 100% free, no paid APIs
+Everything runs on free tiers and keyless, open resources: JobSpy (open source) and LinkedIn's
+public job pages for searching; schema.org data, page markup and Jina Reader (open source,
+keyless) for job descriptions; Clearbit's free company autocomplete and Google public DNS for the
+email finder; official open wage data (Job Bank, U.S. BLS) for pay estimates; Gmail SMTP,
+Telegram and Discord webhooks for alerts. Cover letters, resumes, emails and interview prompts are
+built by the app's own templates; the interview prompt is pasted into the user's own free
+ChatGPT / Claude / Gemini account.
 
 ## Pay: posted first, estimates clearly labelled
 `lib/pay/` decides what every card, list, email and the dashboard show:

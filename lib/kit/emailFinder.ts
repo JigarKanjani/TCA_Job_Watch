@@ -5,11 +5,10 @@ import { checkJobUrl } from "@/lib/jd";
 //  1. Company domain: typed by the user, or looked up from the company name
 //     (Clearbit's free autocomplete), or taken from the company's own careers
 //     page link, then confirmed by a DNS MX lookup (Google public DNS).
-//  2. Evidence: email addresses the company publishes on its own site (and,
-//     with FIRECRAWL_API_KEY, on the wider web) reveal its naming pattern.
-//  3. Optional HUNTER_API_KEY (free plan: 50 lookups/month) returns a
-//     verified address with a confidence score.
-//  4. Everything else is ranked by how common each pattern is in practice.
+//  2. Evidence: email addresses the company publishes on its own site reveal
+//     its naming pattern.
+//  3. Everything else is ranked by how common each pattern is in practice.
+// All free, no API keys.
 
 export type EmailCandidate = { email: string; pattern: string; confidence: "high" | "medium" | "low"; note?: string };
 export type FinderInput = { first: string; last: string; company: string; domain?: string; jobUrl?: string };
@@ -22,7 +21,6 @@ export type FinderResult = {
   candidates: EmailCandidate[];
   generic: { email: string; seen: boolean }[];
   companyOptions: { name: string; domain: string }[];
-  verified?: boolean;
 };
 
 const PATTERNS: { key: string; label: string; weight: number; make: (f: string, l: string) => string | null }[] = [
@@ -114,15 +112,6 @@ async function publicEmails(domain: string): Promise<string[]> {
       } catch {}
     }),
   );
-  const key = process.env.FIRECRAWL_API_KEY;
-  if (key) {
-    const body = (await getJson("https://api.firecrawl.dev/v2/search", 9000, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ query: `"@${domain}"`, limit: 10 }),
-    })) as { data?: { web?: { title?: string; description?: string }[] } } | null;
-    for (const r of body?.data?.web ?? []) grab(`${r.title ?? ""} ${r.description ?? ""}`);
-  }
   return [...found].slice(0, 30);
 }
 
@@ -133,16 +122,6 @@ function patternOf(local: string): string | null {
   if (/^[a-z]{2,}-[a-z]{2,}$/.test(local)) return "first-last";
   if (/^[a-z]\.[a-z]{2,}$/.test(local)) return "f.last";
   return null;
-}
-
-async function hunterFind(domain: string, first: string, last: string) {
-  const key = process.env.HUNTER_API_KEY;
-  if (!key || !last) return null;
-  const q = new URLSearchParams({ domain, first_name: first, last_name: last });
-  const body = (await getJson(`https://api.hunter.io/v2/email-finder?${q}`, 9000, { headers: { "X-API-KEY": key } })) as
-    | { data?: { email?: string; score?: number; verification?: { status?: string } } }
-    | null;
-  return body?.data?.email ? { email: body.data.email.toLowerCase(), score: body.data.score ?? null, status: body.data.verification?.status ?? null } : null;
 }
 
 export async function findEmails(input: FinderInput): Promise<FinderResult> {
@@ -186,7 +165,7 @@ export async function findEmails(input: FinderInput): Promise<FinderResult> {
   if (!domain) return { ...empty, companyOptions, error: "Couldn't work out the company's email domain. Add their website (e.g. company.com)." };
 
   // 2. Evidence.
-  const [mx, published, hunter] = await Promise.all([mxLookup(domain), publicEmails(domain), hunterFind(domain, firstName, lastName)]);
+  const [mx, published] = await Promise.all([mxLookup(domain), publicEmails(domain)]);
   const weights = new Map(PATTERNS.map((p) => [p.key, p.weight]));
   const notes = new Map<string, string>();
   if (mx.provider === "Microsoft 365") {
@@ -201,7 +180,7 @@ export async function findEmails(input: FinderInput): Promise<FinderResult> {
   }
 
   // 3. Rank.
-  let candidates: EmailCandidate[] = PATTERNS.map((p) => ({ p, local: p.make(firstName, lastName) }))
+  const candidates: EmailCandidate[] = PATTERNS.map((p) => ({ p, local: p.make(firstName, lastName) }))
     .filter((x): x is { p: (typeof PATTERNS)[number]; local: string } => Boolean(x.local))
     .map(({ p, local }) => ({ email: `${local}@${domain}`, pattern: p.label, w: weights.get(p.key) ?? 0, note: notes.get(p.key) }))
     .sort((a, b) => b.w - a.w)
@@ -211,21 +190,11 @@ export async function findEmails(input: FinderInput): Promise<FinderResult> {
       note: c.note,
       confidence: (c.w >= 60 || (i === 0 && c.w >= 40) ? "high" : c.w >= 10 ? "medium" : "low") as EmailCandidate["confidence"],
     }));
-  if (hunter) {
-    candidates = candidates.filter((c) => c.email !== hunter.email);
-    candidates.unshift({
-      email: hunter.email,
-      pattern: "verified",
-      confidence: "high",
-      note: `Hunter.io${hunter.score ? ` confidence ${hunter.score}%` : ""}${hunter.status ? ` · ${hunter.status}` : ""}`,
-    });
-  }
-
   const publishedRole = published.filter((e) => ROLE_BOXES.some((r) => e.startsWith(`${r}@`)));
   const generic = [
     ...publishedRole.map((email) => ({ email, seen: true })),
     ...["careers", "jobs", "hr"].map((r) => `${r}@${domain}`).filter((e) => !publishedRole.includes(e)).map((email) => ({ email, seen: false })),
   ].slice(0, 5);
 
-  return { ok: true, domain, domainSource, mx, candidates: candidates.slice(0, 8), generic, companyOptions, verified: Boolean(hunter) };
+  return { ok: true, domain, domainSource, mx, candidates: candidates.slice(0, 8), generic, companyOptions };
 }

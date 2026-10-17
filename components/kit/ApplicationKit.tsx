@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { aiDraft, attachDocToJob, findRecipientEmail, loadKit } from "@/app/(app)/jobs/[id]/kit-actions";
+import { attachDocToJob, findRecipientEmail, loadKit } from "@/app/(app)/jobs/[id]/kit-actions";
 import { createClient } from "@/lib/supabase/client";
 import { label, titleCase } from "@/lib/kit/analyze";
 import { buildDocx, saveBlob } from "@/lib/kit/docx";
@@ -142,7 +142,7 @@ export function ApplicationKit(p: Props) {
           <div className="kit-body" role="tabpanel">
             {tab === "cover" && <DocTab kind="cover" ctx={ctx} recipient={recipient} setRecipient={setRecipient} {...p} resumeId={resumeId} />}
             {tab === "resume" && <DocTab kind="resume" ctx={ctx} recipient={recipient} setRecipient={setRecipient} {...p} resumeId={resumeId} />}
-            {tab === "emails" && <EmailsTab ctx={ctx} recipient={recipient} setRecipient={setRecipient} resumeId={resumeId} demo={p.demo} goFind={() => setTab("finder")} />}
+            {tab === "emails" && <EmailsTab ctx={ctx} recipient={recipient} setRecipient={setRecipient} goFind={() => setTab("finder")} />}
             {tab === "finder" && (
               <FinderTab
                 ctx={ctx}
@@ -248,18 +248,6 @@ function DocTab({
     router.refresh();
   }
 
-  async function writeWithAi() {
-    setBusy("ai");
-    setMsg(null);
-    const r = await aiDraft(jobId, resumeId || null, kind, { recipient: [recipient.first, recipient.last].filter(Boolean).join(" ") });
-    setBusy(null);
-    if ("error" in r) setMsg({ ok: false, text: r.error });
-    else {
-      setText(r.text);
-      setEdited(true);
-    }
-  }
-
   return (
     <div className="stack">
       {kind === "cover" ? (
@@ -303,11 +291,6 @@ function DocTab({
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => copy(text, kind)}>
           {copied === kind ? "Copied ✓" : "Copy text"}
         </button>
-        {ctx.ai && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={writeWithAi} disabled={busy !== null}>
-            {busy === "ai" ? "Writing…" : "✨ Rewrite with AI"}
-          </button>
-        )}
         {edited && (
           <button
             type="button"
@@ -332,15 +315,11 @@ function EmailsTab({
   ctx,
   recipient,
   setRecipient,
-  resumeId,
-  demo,
   goFind,
 }: {
   ctx: KitContext;
   recipient: Recipient;
   setRecipient: (r: Recipient) => void;
-  resumeId: string;
-  demo: boolean;
   goFind: () => void;
 }) {
   const [kind, setKind] = useState<EmailKind>("followup");
@@ -349,8 +328,6 @@ function EmailsTab({
   const build = useCallback(() => emailDraft(kind, ctx, recipient, { when, topic }), [kind, ctx, recipient, when, topic]);
   const [draft, setDraft] = useState(build);
   const [edited, setEdited] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const { copied, copy } = useCopy();
   const meta = EMAIL_KINDS.find((k) => k.value === kind)!;
 
@@ -362,17 +339,6 @@ function EmailsTab({
     setKind(k);
     setEdited(false);
     setDraft(emailDraft(k, ctx, recipient, { when, topic }));
-  }
-
-  async function writeWithAi() {
-    setBusy(true);
-    setMsg(null);
-    const r = await aiDraft(ctx.jobId, resumeId || null, kind, { recipient: [recipient.first, recipient.last].filter(Boolean).join(" "), when, topic });
-    setBusy(false);
-    if ("error" in r) return setMsg(r.error);
-    const m = r.text.match(/^subject:\s*(.+)\n+/i);
-    setDraft(m ? { subject: m[1].trim(), body: r.text.slice(m[0].length).trim() } : { subject: draft.subject, body: r.text });
-    setEdited(true);
   }
 
   const to = recipient.email.trim();
@@ -481,13 +447,7 @@ function EmailsTab({
             )}
           </>
         )}
-        {ctx.ai && !demo && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={writeWithAi} disabled={busy}>
-            {busy ? "Writing…" : "✨ Rewrite with AI"}
-          </button>
-        )}
       </div>
-      {msg && <p className="notice notice-err small">{msg}</p>}
     </div>
   );
 }
@@ -641,9 +601,7 @@ function FinderTab({
             </p>
           )}
           <p className="hint">
-            {result.verified
-              ? "The top address was checked with Hunter.io."
-              : "These are educated guesses ranked by how companies usually format addresses. Sending to the top one or two usually works; a bounce just means try the next."}
+            These are educated guesses ranked by how companies usually format addresses. Sending to the top one or two usually works; a bounce just means try the next.
           </p>
         </div>
       )}

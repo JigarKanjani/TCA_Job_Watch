@@ -63,22 +63,22 @@ function chunks(parts: string[], limit: number) {
 function emailHtml(alert: AlertInfo, jobs: DeliverJob[], site: string, note?: string) {
   const rows = jobs
     .map((m) => {
-      const track = site ? `&nbsp;&nbsp;<a href="${esc(site)}/jobs/${m.id}" style="color:#065f55">Track it</a>` : "";
+      const track = site ? `&nbsp;&nbsp;<a href="${esc(site)}/jobs/${m.id}" style="color:#a8402f">Track it</a>` : "";
       return (
-        `<tr><td style="padding:14px 0;border-top:1px solid #e2e9e8">` +
-        `<a href="${esc(m.job_url)}" style="color:#0d1b20;font-weight:600;font-size:16px;text-decoration:none">${esc(m.title ?? "New role")}</a>` +
-        `<div style="color:#536167;font-size:14px;margin:4px 0 8px">${esc(bits(m))}</div>` +
-        `<a href="${esc(m.job_url)}" style="background:#0d9488;color:#fff;padding:7px 13px;border-radius:999px;text-decoration:none;font-size:13px;font-weight:600">Apply now</a>${track}</td></tr>`
+        `<tr><td style="padding:14px 0;border-top:1px solid #efe4dd">` +
+        `<a href="${esc(m.job_url)}" style="color:#111827;font-weight:600;font-size:16px;text-decoration:none">${esc(m.title ?? "New role")}</a>` +
+        `<div style="color:#4b5563;font-size:14px;margin:4px 0 8px">${esc(bits(m))}</div>` +
+        `<a href="${esc(m.job_url)}" style="background:#db624d;color:#fff;padding:7px 13px;border-radius:999px;text-decoration:none;font-size:13px;font-weight:600">Apply now</a>${track}</td></tr>`
       );
     })
     .join("");
   const sort = site
-    ? `<p style="margin:18px 0 0"><a href="${esc(site)}/dashboard" style="color:#065f55;font-weight:600">Sort them on your dashboard →</a></p>`
+    ? `<p style="margin:18px 0 0"><a href="${esc(site)}/dashboard" style="color:#a8402f;font-weight:600">Sort them on your dashboard →</a></p>`
     : "";
   return (
-    `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:600px;margin:auto;padding:20px;color:#0d1b20">` +
+    `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:600px;margin:auto;padding:20px;color:#111827">` +
     `<h2 style="font-size:20px;margin:0 0 6px">${esc(header(alert, jobs.length))}</h2>` +
-    (note ? `<p style="color:#536167;font-size:14px;margin:0 0 8px">${esc(note)}</p>` : "") +
+    (note ? `<p style="color:#4b5563;font-size:14px;margin:0 0 8px">${esc(note)}</p>` : "") +
     `<table style="width:100%;border-collapse:collapse">${rows}</table>${sort}` +
     (hasEstimate(jobs) ? `<p style="color:#7a8a8f;font-size:11px;margin-top:18px">${esc(EST_NOTE)}</p>` : "") +
     `</div>`

@@ -27,7 +27,6 @@ export type KitContext = {
   achievements: string[];
   sections: Section[];
   pay: string | null;
-  ai: boolean;
 };
 
 export type Recipient = { first: string; last: string; email: string; linkedin: string; title: string };
