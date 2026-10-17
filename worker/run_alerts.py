@@ -459,6 +459,19 @@ def phase_deliver():
     log(f"deliver: delivered for {sent_alerts} alert(s)")
 
 
+def phase_briefs():
+    """Ask the site to send search briefs whose delivery window has opened."""
+    if not SITE_URL:
+        log("briefs: SITE_URL not set, skipped")
+        return
+    try:
+        r = requests.post(f"{SITE_URL}/api/briefs/run", headers={"Authorization": f"Bearer {WORKER_SECRET}"}, timeout=90)
+        body = r.json() if r.ok else {}
+        log(f"briefs: HTTP {r.status_code} sent={body.get('sent', 0)} cancelled={body.get('cancelled', 0)} retry={body.get('retry', 0)}")
+    except Exception as e:
+        log(f"briefs: failed ({type(e).__name__})")
+
+
 def main():
     missing = [k for k, v in {"SUPABASE_URL": SUPABASE_URL, "SUPABASE_PUBLISHABLE_KEY": SUPABASE_KEY, "WORKER_SECRET": WORKER_SECRET}.items() if not v]
     if missing:
@@ -469,6 +482,8 @@ def main():
         phase_scrape()
     if only in ("all", "deliver"):
         phase_deliver()
+    if only in ("all", "deliver", "briefs"):
+        phase_briefs()
 
 
 if __name__ == "__main__":

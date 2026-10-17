@@ -33,7 +33,8 @@ Browser ──> Next.js (Vercel) ──RLS──> Supabase  <──secret-gated 
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL`,
 `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`,
 `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (a free Gmail account with an
-app password works), optional `DEMO_EMAIL` + `DEMO_PASSWORD` (enables the one-click read-only demo;
+app password works; any SMTP relay such as Brevo's free plan drops in by changing these),
+`WORKER_SECRET` (same value as the GitHub secret; lets the worker trigger search briefs), optional `DEMO_EMAIL` + `DEMO_PASSWORD` (enables the one-click read-only demo;
 writes are blocked in the database for that account).
 
 **GitHub Actions** (repo → Settings → Secrets and variables → Actions):
@@ -61,6 +62,17 @@ ChatGPT / Claude / Gemini account.
 
 Refresh the data each year with `python scripts/build_wages.py <download-dir>` (sources and steps
 are in the script). The worker gets pay labels from the site's `/api/pay`.
+
+## Search briefs (email after "Find jobs now")
+After a manual search, users who get email alerts receive a short brief: counts, typical pay, top
+picks (posted pay first), companies hiring, and a button back to the sorter (`lib/brief.ts`).
+- Inside one of the user's delivery windows (their timezone, `lib/schedule.ts`) it is sent at once.
+- Outside them it is queued in `scheduled_messages` for the exact moment the next window opens;
+  further searches while it waits join the same email. Jobs already sorted in the app are dropped,
+  and nothing is sent if none are left.
+- The worker calls `POST /api/briefs/run` (Bearer `WORKER_SECRET`, also set on Vercel) every run to
+  send what's due. Users can turn briefs off in Settings; every brief links there.
+- An instant alert's first batch follows the same rule: sent now only if a window is open.
 
 ## Delivery windows
 Defined in `lib/config.ts` and mirrored in `worker/run_alerts.py` (`WINDOWS`) — keep them in sync.

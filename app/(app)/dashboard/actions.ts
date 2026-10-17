@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { requireProfile, requireUser } from "@/lib/auth";
+import { briefAfterSearch } from "@/lib/briefs";
 import { DEMO_MESSAGE, isDemoEmail } from "@/lib/demo";
 import { searchLinkedIn } from "@/lib/linkedin";
 import { matchesAlert } from "@/lib/matching";
@@ -14,14 +15,17 @@ const COOLDOWN_MS = 2 * 60 * 1000;
 // "Find jobs now": search LinkedIn for every active alert right away and drop
 // new matches straight into the log (and the swipe deck).
 export async function findJobsNow(): Promise<FindState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, user, profile } = await requireProfile();
   if (isDemoEmail(user.email)) return { ok: false, message: DEMO_MESSAGE };
+  const startedAt = new Date();
 
   const { data: alerts } = await supabase
     .from("alerts")
-    .select("id, role, city, country, work_mode, min_salary, exclude_keywords, last_checked_at")
+    .select("id, role, city, country, work_mode, min_salary, exclude_keywords, last_checked_at, channels, windows, timezone")
     .eq("active", true)
-    .returns<Pick<Alert, "id" | "role" | "city" | "country" | "work_mode" | "min_salary" | "exclude_keywords" | "last_checked_at">[]>();
+    .returns<
+      Pick<Alert, "id" | "role" | "city" | "country" | "work_mode" | "min_salary" | "exclude_keywords" | "last_checked_at" | "channels" | "windows" | "timezone">[]
+    >();
   if (!alerts?.length) return { ok: false, message: "Create an alert first, then we can search for you." };
 
   const now = Date.now();
@@ -54,6 +58,17 @@ export async function findJobsNow(): Promise<FindState> {
 
   revalidatePath("/dashboard");
   revalidatePath("/jobs");
+  // Email a short brief of the finds, inside the user's delivery hours.
+  const brief = found
+    ? await briefAfterSearch({
+        supabase,
+        to: profile?.email ?? user.email ?? null,
+        name: profile?.full_name ?? null,
+        wantsBriefs: profile?.search_briefs ?? true,
+        alerts: due.map((a) => ({ id: a.id, role: a.role, country: a.country, channels: a.channels, windows: a.windows, timezone: a.timezone })),
+        since: startedAt,
+      }).catch(() => null)
+    : null;
   if (found === 0 && blocked === due.length) {
     return { ok: false, found: 0, searched: due.length, message: "LinkedIn is busy right now. Try again in a minute — your scheduled scan will also catch up." };
   }
@@ -62,7 +77,7 @@ export async function findJobsNow(): Promise<FindState> {
     found,
     searched: due.length,
     message: found
-      ? `Found ${found} new job${found === 1 ? "" : "s"} across ${due.length} alert${due.length === 1 ? "" : "s"}.`
+      ? `Found ${found} new job${found === 1 ? "" : "s"} across ${due.length} alert${due.length === 1 ? "" : "s"}.${brief ? ` ${brief}` : ""}`
       : "No new matches since your last search. We'll keep watching.",
   };
 }

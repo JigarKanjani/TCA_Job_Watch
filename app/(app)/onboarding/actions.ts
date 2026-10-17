@@ -11,6 +11,7 @@ import { matchesAlert } from "@/lib/matching";
 import { deliverMatches, siteOrigin, type DeliverJob } from "@/lib/deliver";
 import { estimatePay, payView } from "@/lib/pay/estimate";
 import { formatRange, money } from "@/lib/pay/parse";
+import { windowOpenAt } from "@/lib/schedule";
 
 export type CreateAlertState = { error?: string };
 
@@ -117,7 +118,9 @@ export async function createAlert(_prev: CreateAlertState, form: FormData): Prom
         saved = await supabase.rpc("save_found_jobs", { p_alert_id: created.id, p_jobs: keep });
       }
       found = typeof saved.data === "number" ? saved.data : 0;
-      if (found && frequency === "instant") {
+      // Instant alerts send the first batch now if a delivery window is open;
+      // otherwise it stays queued and the worker sends it when one opens.
+      if (found && frequency === "instant" && windowOpenAt(windows.includes("always") ? ["always"] : windows, timezone, new Date())) {
         const { data: batch } = await supabase
           .from("job_matches")
           .select("id, title, company, location, salary, job_url, pay_hint")

@@ -8,7 +8,7 @@ on:
       phase:
         description: "Which phase to run"
         type: choice
-        options: [all, scrape, deliver]
+        options: [all, scrape, deliver, briefs]
         default: all
 
 concurrency:

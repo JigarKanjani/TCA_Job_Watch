@@ -6,7 +6,7 @@ import { entitlementsFor, PRICING } from "@/lib/plans";
 import { Flash } from "@/components/Flash";
 import { SubmitButton } from "@/components/SubmitButton";
 import Link from "next/link";
-import { disconnectTelegram, saveBaseResume, saveDiscord } from "./actions";
+import { disconnectTelegram, saveBaseResume, saveDiscord, setSearchBriefs } from "./actions";
 import { TestButton } from "./TestButton";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -43,6 +43,21 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               {!emailConfigured() && <span className="small text-warn">Email delivery is being switched on.</span>}
             </div>
             <TestButton channel="email" disabled={!emailConfigured()} />
+          </div>
+
+          <div className="chan-row" id="briefs">
+            <div className="info">
+              <b>☀︎ Search briefs</b>
+              <span className="small muted">
+                {profile?.search_briefs === false
+                  ? "Off. Turn on to get a short email of what Find jobs now turns up."
+                  : "On. After Find jobs now, we email a short brief of the finds. Outside your delivery hours it waits until they start, in your timezone."}
+              </span>
+            </div>
+            <form action={setSearchBriefs}>
+              <input type="hidden" name="on" value={profile?.search_briefs === false ? "1" : "0"} />
+              <SubmitButton className="btn btn-outline btn-sm" pendingText="…">{profile?.search_briefs === false ? "Turn on" : "Turn off"}</SubmitButton>
+            </form>
           </div>
 
           <div className="chan-row">

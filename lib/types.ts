@@ -10,6 +10,7 @@ export type Profile = {
   plan: string;
   plan_status: string | null;
   base_resume_doc_id?: string | null;
+  search_briefs?: boolean;
   created_at: string;
 };
 

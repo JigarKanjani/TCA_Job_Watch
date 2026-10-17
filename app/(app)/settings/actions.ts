@@ -29,6 +29,15 @@ export async function saveBaseResume(form: FormData) {
   redirect(`/settings?flash=${error ? "base_resume_failed" : "base_resume_saved"}`);
 }
 
+export async function setSearchBriefs(form: FormData) {
+  const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) redirect("/settings?flash=demo_readonly");
+  const on = form.get("on") === "1";
+  await supabase.from("profiles").update({ search_briefs: on }).eq("id", user.id);
+  revalidatePath("/settings");
+  redirect(`/settings?flash=${on ? "briefs_on" : "briefs_off"}#briefs`);
+}
+
 export async function disconnectTelegram() {
   const { supabase, user } = await requireUser();
   if (isDemoEmail(user.email)) redirect("/settings?flash=demo_readonly");

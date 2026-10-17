@@ -1,5 +1,7 @@
 const MESSAGES: Record<string, { kind: "ok" | "err"; text: string }> = {
   alert_created: { kind: "ok", text: "Alert saved. We're watching. New matches show up here and in your alerts as soon as they're posted." },
+  briefs_on: { kind: "ok", text: "Search briefs are on. After Find jobs now, we'll email you a short brief during your delivery hours." },
+  briefs_off: { kind: "ok", text: "Search briefs are off. Your regular alerts still arrive as set." },
   base_resume_saved: { kind: "ok", text: "Base resume saved. The Application kit on each job will use it." },
   base_resume_failed: { kind: "err", text: "Couldn't save your base resume. Please try again." },
   alert_created_found: { kind: "ok", text: "Alert saved and your first matches are in. Sort them now; new ones arrive automatically." },
