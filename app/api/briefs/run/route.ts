@@ -1,7 +1,7 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { renderBrief, type BriefJob } from "@/lib/brief";
 import { sendEmail } from "@/lib/notify";
+import { safeEqual } from "@/lib/security";
 import { createAnonClient } from "@/lib/supabase/anon";
 
 export const dynamic = "force-dynamic";
@@ -16,11 +16,8 @@ type DueBrief = {
   jobs: (BriefJob & { status: string; windows: string[] | null; timezone: string | null })[];
 };
 
-function authorised(request: Request, secret: string) {
-  const got = Buffer.from((request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, ""));
-  const want = Buffer.from(secret);
-  return got.length === want.length && timingSafeEqual(got, want);
-}
+const authorised = (request: Request, secret: string) =>
+  safeEqual((request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, ""), secret);
 
 // Sends search briefs whose delivery window has opened. Called by the
 // scheduled worker every 30 minutes with the worker secret.

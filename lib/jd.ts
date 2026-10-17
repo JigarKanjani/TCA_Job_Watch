@@ -1,5 +1,7 @@
 import "server-only";
 import { formatRange, type Period } from "@/lib/pay/parse";
+import { allow } from "@/lib/ratelimit";
+import { checkPublicUrl, safeFetch } from "@/lib/safeFetch";
 
 // Fetches title / company / location / description for a job posting URL.
 // Order: schema.org JobPosting
@@ -20,25 +22,9 @@ export type JobDetails = {
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 
-export function checkJobUrl(raw: string): URL | string {
-  let url: URL;
-  try {
-    url = new URL(raw.trim());
-  } catch {
-    return "Paste the full link, starting with https://";
-  }
-  if (!/^https?:$/.test(url.protocol)) return "Only http and https links work.";
-  const host = url.hostname.toLowerCase();
-  const privateHost =
-    host === "localhost" ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal") ||
-    /^(127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host) ||
-    host.startsWith("[") ||
-    /^\d+$/.test(host);
-  if (privateHost) return "That address isn't allowed.";
-  return url;
-}
+export const checkJobUrl = checkPublicUrl;
+
+const isLinkedIn = (url: string) => /(^|\.)linkedin\.com$/i.test(new URL(url).hostname);
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", ndash: "–", mdash: "—", hellip: "…", bull: "•" };
 
@@ -152,7 +138,7 @@ function fromKnownMarkup(html: string): string | undefined {
 // Reader (open source, https://github.com/jina-ai/reader). LinkedIn refuses
 // it, but LinkedIn's guest pages are already read from their markup above.
 async function viaReader(url: string): Promise<JobDetails | undefined> {
-  if (/(^|\.)linkedin\.com$/i.test(new URL(url).hostname)) return;
+  if (isLinkedIn(url) || !(await allow("jina", "all"))) return;
   try {
     const res = await fetch(`https://r.jina.ai/${url}`, { headers: { Accept: "text/plain" }, signal: AbortSignal.timeout(20000) });
     if (!res.ok) return;
@@ -173,9 +159,9 @@ export async function fetchJobDetails(rawUrl: string): Promise<JobDetails> {
 
   let html = "";
   try {
-    const res = await fetch(url, {
+    if (!(await allow(isLinkedIn(url) ? "linkedin" : "site_fetch", "all"))) throw new Error("busy");
+    const res = await safeFetch(url, {
       headers: { "User-Agent": UA, Accept: "text/html,application/xhtml+xml", "Accept-Language": "en-CA,en;q=0.9" },
-      redirect: "follow",
       signal: AbortSignal.timeout(12000),
     });
     if (res.ok) html = (await res.text()).slice(0, 2_000_000);

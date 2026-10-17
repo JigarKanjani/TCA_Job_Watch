@@ -205,6 +205,14 @@ details p { color: var(--muted); padding-bottom: 16px; font-size: 0.94rem; }
 .foot-links a { color: var(--muted); text-decoration: none; }
 .foot-links a:hover { color: var(--accent-ink); text-decoration: underline; }
 
+/* ---------- your data ---------- */
+.data-controls { display: grid; margin-top: 12px; }
+.data-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 20px; padding: 16px 0; border-top: 1px solid var(--line); }
+.data-row .info { display: grid; gap: 3px; max-width: 60ch; }
+.data-row .row { flex-wrap: wrap; }
+.danger-row .info b { color: var(--danger); }
+.danger-row .input { width: 150px; }
+
 /* ---------- legal pages ---------- */
 .legal { max-width: 760px; padding-block: clamp(32px, calc(5 * var(--vw)), 56px) 40px; }
 .legal h1 { font-size: clamp(1.9rem, calc(4 * var(--vw)), 2.6rem); margin: 10px 0 8px; }

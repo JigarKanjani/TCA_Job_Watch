@@ -27,7 +27,7 @@ const TICKER = [
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; error_code?: string; error_description?: string }>;
+  searchParams: Promise<{ error?: string; error_code?: string; error_description?: string; flash?: string }>;
 }) {
   const params = await searchParams;
   const [{ user }, auth] = await Promise.all([getUser(), getAuthSettings()]);
@@ -42,6 +42,11 @@ export default async function Home({
 
   return (
     <>
+      {params.flash === "account_deleted" && (
+        <div className="wrap" style={{ paddingTop: 20 }}>
+          <div className="notice notice-ok flash">Your account and all its data have been deleted. Thanks for trying JobWatch.</div>
+        </div>
+      )}
       {linkProblem && (
         <div className="wrap" style={{ paddingTop: 20 }}>
           <div className="notice notice-warn flash row between">

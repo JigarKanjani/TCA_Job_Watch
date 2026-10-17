@@ -10,7 +10,7 @@ export function SubmitButton({
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { pendingText?: string }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className={className} disabled={pending || rest.disabled} {...rest}>
+    <button type="submit" className={className} {...rest} disabled={pending || rest.disabled}>
       {pending ? pendingText : children}
     </button>
   );

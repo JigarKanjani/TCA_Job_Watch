@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { originFrom } from "@/lib/redirect";
+import { safeEqual } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const key = new URL(request.url).searchParams.get("key");
-  if (!secret || !token || key !== secret) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  if (!secret || !token || !safeEqual(key, secret)) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
   const url = `${originFrom(request)}/api/telegram/webhook`;
   const api = (method: string, body: unknown) =>

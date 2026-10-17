@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { APP_NAME } from "@/lib/config";
 import { createAnonClient } from "@/lib/supabase/anon";
 import { sendTelegram } from "@/lib/notify";
+import { allow } from "@/lib/ratelimit";
+import { safeEqual } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -13,14 +15,16 @@ type Update = {
 // the secret token we registered via /api/telegram/setup.
 export async function POST(request: Request) {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
-  if (!secret || request.headers.get("x-telegram-bot-api-secret-token") !== secret) {
+  if (!secret || !safeEqual(request.headers.get("x-telegram-bot-api-secret-token"), secret)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
   const update = (await request.json().catch(() => ({}))) as Update;
   const chatId = update.message?.chat?.id;
-  const text = (update.message?.text ?? "").trim();
-  if (!chatId) return NextResponse.json({ ok: true });
+  const text = (update.message?.text ?? "").trim().slice(0, 200);
+  if (typeof chatId !== "number") return NextResponse.json({ ok: true });
+  // A chat flooding the bot gets no replies (and so can't make us spam it back).
+  if (!(await allow("telegram_in", String(chatId)))) return NextResponse.json({ ok: true });
 
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const supabase = createAnonClient();

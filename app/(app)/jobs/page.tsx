@@ -9,13 +9,22 @@ import { StatusSelect } from "@/components/StatusSelect";
 import { FindJobsButton } from "@/components/FindJobsButton";
 import { PayFinePrint, PayTag } from "@/components/PayTag";
 import { payView } from "@/lib/pay/estimate";
+import { cleanText, filterTerm, isUuid } from "@/lib/sanitize";
 
 export const metadata: Metadata = { title: "Job log" };
 
 type Search = { status?: string; alert?: string; q?: string; flash?: string };
+type RawSearch = Partial<Record<keyof Search, string | string[]>>;
 
-export default async function JobsPage({ searchParams }: { searchParams: Promise<Search> }) {
-  const params = await searchParams;
+export default async function JobsPage({ searchParams }: { searchParams: Promise<RawSearch> }) {
+  const raw = await searchParams;
+  // Query strings are untrusted: one value each, cleaned, and only known shapes kept.
+  const params: Search = {
+    status: cleanText(raw.status, 30) || undefined,
+    alert: isUuid(cleanText(raw.alert, 40)) ? cleanText(raw.alert, 40) : undefined,
+    q: filterTerm(raw.q) || undefined,
+    flash: cleanText(raw.flash, 40) || undefined,
+  };
   const { supabase } = await requireUser();
 
   let query = supabase
@@ -29,10 +38,9 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
   // Jobs you passed on live in the archive, not the main log.
   else query = query.neq("status", "not_interested");
   if (params.alert) query = query.eq("alert_id", params.alert);
-  if (params.q) {
-    const q = params.q.replace(/[%,()]/g, " ").trim().slice(0, 80);
-    if (q) query = query.or(`title.ilike.%${q}%,company.ilike.%${q}%,location.ilike.%${q}%`);
-  }
+  // filterTerm() leaves only letters, numbers, spaces and a few safe symbols,
+  // and each value is quoted, so the term can't add or alter filter conditions.
+  if (params.q) query = query.or(["title", "company", "location"].map((c) => `${c}.ilike."%${params.q}%"`).join(","));
 
   const [{ data: jobs }, { data: alerts }, { data: docs }, { count: archivedCount }] = await Promise.all([
     query.returns<JobMatch[]>(),

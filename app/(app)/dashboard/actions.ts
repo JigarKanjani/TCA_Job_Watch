@@ -6,6 +6,8 @@ import { briefAfterSearch } from "@/lib/briefs";
 import { DEMO_MESSAGE, isDemoEmail } from "@/lib/demo";
 import { searchLinkedIn } from "@/lib/linkedin";
 import { matchesAlert } from "@/lib/matching";
+import { allow, LIMITED } from "@/lib/ratelimit";
+import { isUuid } from "@/lib/sanitize";
 import type { Alert } from "@/lib/types";
 
 export type FindState = { ok: boolean; found?: number; searched?: number; message: string };
@@ -31,6 +33,7 @@ export async function findJobsNow(): Promise<FindState> {
   const now = Date.now();
   const due = alerts.filter((a) => !a.last_checked_at || now - new Date(a.last_checked_at).getTime() > COOLDOWN_MS);
   if (!due.length) return { ok: true, found: 0, searched: 0, message: "We just searched — give it a couple of minutes before searching again." };
+  if (!(await allow("find_now", user.id))) return { ok: false, found: 0, searched: 0, message: LIMITED };
 
   const { data: known } = await supabase.from("job_matches").select("job_url").limit(5000);
   const seen = new Set((known ?? []).map((r) => r.job_url as string));
@@ -98,7 +101,8 @@ const NEEDS_UPDATE = "Super Apply and Maybe need a one-time database update (see
 export async function moveJob(id: string, move: Move): Promise<SwipeResult> {
   const { supabase, user } = await requireUser();
   if (isDemoEmail(user.email)) return { ok: false, demo: true, message: DEMO_MESSAGE };
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Unknown job." };
+  if (!isUuid(id)) return { ok: false, message: "Unknown job." };
+  if (!(await allow("writes", user.id))) return { ok: false, message: LIMITED };
 
   const patch: Record<string, unknown> = {};
   if (move === "apply") Object.assign(patch, { status: "saved", apply_by: null });

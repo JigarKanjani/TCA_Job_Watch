@@ -15,6 +15,7 @@ Logs contain only counts and alert IDs — never emails, chat IDs or job text �
 because Actions logs on public repositories are public.
 """
 
+import hashlib
 import html
 import math
 import os
@@ -22,6 +23,7 @@ import re
 import smtplib
 import ssl
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from zoneinfo import ZoneInfo
@@ -42,6 +44,14 @@ EMAIL_FROM = os.environ.get("EMAIL_FROM", "") or SMTP_USER
 
 RESULTS_PER_SEARCH = 30
 MAX_SAVE_PER_ALERT = 30
+# Gentle on LinkedIn/Indeed: a pause between searches and a cap per run
+# (alerts not reached this run are searched next run).
+MAX_SEARCHES_PER_RUN = 40
+PAUSE_BETWEEN_SEARCHES = 4.0
+# Anti-spam email caps, shared with the site (lib/ratelimit.ts: smtp_day and
+# email_to_day). A free Gmail account sends about 500 emails a day.
+SMTP_DAILY_LIMIT = 450
+EMAIL_PER_ADDRESS_DAILY = 30
 HOUR_BUCKETS = [3, 6, 12, 24, 48, 72]
 
 # Keep in sync with lib/config.ts (WINDOWS). Days: 0 = Monday … 6 = Sunday.
@@ -71,6 +81,34 @@ def rpc(name: str, payload: dict):
     if res.status_code >= 300:
         raise RuntimeError(f"rpc {name} failed: HTTP {res.status_code}")
     return res.json() if res.text else None
+
+
+def key_of(value):
+    """Same hashed key the site uses, so both count against one limit."""
+    return hashlib.sha256(f"{value.strip().lower()}|{WORKER_SECRET}".encode()).hexdigest()[:32]
+
+
+def allow(bucket, key, limit, window):
+    """Count one hit in the shared rate limiter. Fails open if it's unreachable."""
+    try:
+        return rpc("rate_limit_hit", {"p_bucket": bucket, "p_key": key, "p_limit": limit, "p_window_seconds": window}) is not False
+    except Exception:
+        return True
+
+
+def post_paced(url, body):
+    """POST to Telegram/Discord; on 429 wait as told (up to 5 s) and retry once."""
+    r = requests.post(url, json=body, timeout=20)
+    if r.status_code == 429:
+        try:
+            data = r.json()
+            wait = float(data.get("retry_after") or (data.get("parameters") or {}).get("retry_after") or 0)
+        except Exception:
+            wait = 0
+        if 0 < wait <= 5:
+            time.sleep(wait + 0.25)
+            r = requests.post(url, json=body, timeout=20)
+    return r
 
 
 # ---------------------------------------------------------------- helpers
@@ -238,9 +276,13 @@ def phase_scrape():
         seen_by_user.setdefault(a["user_id"], set()).update(a.get("seen_urls") or [])
 
     saved_total = 0
-    for i, (key, group) in enumerate(groups.items(), 1):
+    if len(groups) > MAX_SEARCHES_PER_RUN:
+        log(f"scrape: {len(groups)} searches due; doing {MAX_SEARCHES_PER_RUN} now, the rest next run")
+    for i, (key, group) in enumerate(list(groups.items())[:MAX_SEARCHES_PER_RUN], 1):
         role, _, country, mode, hours = key
         sample = group[0]
+        if i > 1:
+            time.sleep(PAUSE_BETWEEN_SEARCHES)
         try:
             jobs = scrape(sample["role"], sample.get("city") or "", country, mode, hours)
         except Exception as e:  # keep going; unstamped alerts retry next run
@@ -304,7 +346,7 @@ def annotate_pay(alert, matches):
     jobs = [{"title": m.get("title"), "location": m.get("location"), "salary": m.get("salary"),
              "pay_hint": m.get("pay_hint"), "country": alert.get("country")} for m in matches]
     try:
-        r = requests.post(f"{SITE_URL}/api/pay", json={"jobs": jobs}, timeout=20)
+        r = requests.post(f"{SITE_URL}/api/pay", json={"jobs": jobs}, headers={"Authorization": f"Bearer {WORKER_SECRET}"}, timeout=20)
         pays = r.json().get("pay") if r.ok else None
     except Exception:
         pays = None
@@ -357,11 +399,12 @@ def send_telegram(chat_id, alert, matches):
     if SITE_URL:
         parts.append(f"Manage alerts: {SITE_URL}/alerts")
     ok = True
-    for text in chunks(parts, 3800):
-        r = requests.post(
+    for i, text in enumerate(chunks(parts, 3800)):
+        if i:
+            time.sleep(1.1)  # Telegram: about one message a second per chat
+        r = post_paced(
             f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-            json={"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
-            timeout=20,
+            {"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
         )
         ok = ok and r.ok
     return ok
@@ -374,8 +417,10 @@ def send_discord(webhook, alert, matches):
     if has_estimate(matches):
         parts.append(f"-# {EST_NOTE}")
     ok = True
-    for text in chunks(parts, 1900):
-        r = requests.post(webhook, json={"username": APP_NAME, "content": text}, timeout=20)
+    for i, text in enumerate(chunks(parts, 1900)):
+        if i:
+            time.sleep(0.5)  # Discord webhooks: 5 requests per 2 seconds
+        r = post_paced(webhook, {"username": APP_NAME, "content": text})
         ok = ok and r.status_code < 300
     return ok
 
@@ -404,6 +449,12 @@ def email_html(alert, matches):
 def send_email(to, alert, matches):
     if not to or not (SMTP_USER and SMTP_PASS):
         return False
+    if not allow("email_to_day", key_of(to), EMAIL_PER_ADDRESS_DAILY, 86400):
+        log(f"deliver: alert {alert['id'][:8]} email skipped — daily cap for this address")
+        return False
+    if not allow("smtp_day", "all", SMTP_DAILY_LIMIT, 86400):
+        log("deliver: email skipped — app-wide daily email cap reached")
+        return False
     n = len(matches)
     if alert.get("frequency") == "instant" and n == 1:
         m = matches[0]
@@ -415,6 +466,8 @@ def send_email(to, alert, matches):
     try:
         msg = EmailMessage()
         msg["Subject"], msg["From"], msg["To"] = subject, EMAIL_FROM, to
+        if SITE_URL:
+            msg["List-Unsubscribe"] = f"<{SITE_URL}/alerts>"
         msg.set_content(text)
         msg.add_alternative(body, subtype="html")
         if SMTP_PORT == 465:

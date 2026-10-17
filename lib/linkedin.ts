@@ -1,4 +1,5 @@
 import "server-only";
+import { allow } from "@/lib/ratelimit";
 
 // Fast on-demand search against LinkedIn's public job-search pages (the same
 // source the scheduled JobSpy worker uses). Used by "Find jobs now", so it must
@@ -55,6 +56,8 @@ export function parseCards(html: string): FoundJob[] {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function fetchPage(url: string, attempt = 0): Promise<{ status: number; html: string }> {
+  // App-wide budget so many users searching at once stay under LinkedIn's radar.
+  if (attempt === 0 && !(await allow("linkedin", "all"))) return { status: 429, html: "" };
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": UA, "Accept-Language": "en-CA,en;q=0.9" },

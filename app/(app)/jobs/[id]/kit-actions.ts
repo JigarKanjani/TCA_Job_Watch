@@ -8,8 +8,8 @@ import { findEmails, type FinderInput, type FinderResult } from "@/lib/kit/email
 import { documentText } from "@/lib/kit/resumeText";
 import { payView } from "@/lib/pay/estimate";
 import type { KitContext } from "@/lib/kit/templates";
-
-const UUID = /^[0-9a-f-]{36}$/i;
+import { allow, LIMITED } from "@/lib/ratelimit";
+import { cleanText, isUuid } from "@/lib/sanitize";
 
 // Job descriptions scraped as markdown carry escapes and emphasis marks.
 const plainJd = (d: string | null) =>
@@ -24,7 +24,8 @@ const plainJd = (d: string | null) =>
 
 async function buildContext(jobId: string, docId: string | null): Promise<KitContext | { error: string }> {
   const { supabase, user, profile } = await requireProfile();
-  if (!UUID.test(jobId) || (docId && !UUID.test(docId))) return { error: "Unknown job." };
+  if (!isUuid(jobId) || (docId && !isUuid(docId))) return { error: "Unknown job." };
+  if (!(await allow("kit", user.id))) return { error: LIMITED };
   const { data: job } = await supabase
     .from("job_matches")
     .select("id, title, company, location, job_url, description, salary, alert_id")
@@ -69,14 +70,15 @@ export async function loadKit(jobId: string, docId: string | null) {
 }
 
 export async function findRecipientEmail(input: FinderInput): Promise<FinderResult> {
-  await requireUser();
-  const clip = (s: string | undefined, n: number) => (s ?? "").trim().slice(0, n);
+  const { user } = await requireUser();
+  if (!(await allow("email_finder", user.id))) return { ok: false, error: LIMITED, domain: null, candidates: [], generic: [], companyOptions: [] };
+  const o = (input ?? {}) as Partial<Record<keyof FinderInput, unknown>>;
   return findEmails({
-    first: clip(input.first, 60),
-    last: clip(input.last, 60),
-    company: clip(input.company, 120),
-    domain: clip(input.domain, 120),
-    jobUrl: clip(input.jobUrl, 2000),
+    first: cleanText(o.first, 60),
+    last: cleanText(o.last, 60),
+    company: cleanText(o.company, 120),
+    domain: cleanText(o.domain, 120),
+    jobUrl: cleanText(o.jobUrl, 2000),
   });
 }
 
@@ -84,7 +86,8 @@ export async function findRecipientEmail(input: FinderInput): Promise<FinderResu
 export async function attachDocToJob(jobId: string, docId: string, kind: "resume" | "cover_letter") {
   const { supabase, user } = await requireUser();
   if (isDemoEmail(user.email)) return { ok: false, message: DEMO_MESSAGE };
-  if (!UUID.test(jobId) || !UUID.test(docId)) return { ok: false, message: "Unknown job." };
+  if (!isUuid(jobId) || !isUuid(docId) || (kind !== "resume" && kind !== "cover_letter")) return { ok: false, message: "Unknown job." };
+  if (!(await allow("writes", user.id))) return { ok: false, message: LIMITED };
   const { error } = await supabase
     .from("job_matches")
     .update(kind === "resume" ? { resume_doc_id: docId } : { cover_doc_id: docId })

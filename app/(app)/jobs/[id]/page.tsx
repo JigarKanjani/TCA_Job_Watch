@@ -13,6 +13,7 @@ import { TrackerForm, DescriptionPanel } from "./JobForms";
 import { ApplicationKit } from "@/components/kit/ApplicationKit";
 import { PayFinePrint, PayTag } from "@/components/PayTag";
 import { payView } from "@/lib/pay/estimate";
+import { isUuid } from "@/lib/sanitize";
 
 export const metadata: Metadata = { title: "Job" };
 
@@ -25,7 +26,7 @@ export default async function JobPage({
 }) {
   const { id } = await params;
   const { flash } = await searchParams;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!isUuid(id)) notFound();
   const { supabase, user, profile } = await requireProfile();
   const [{ data: job }, { data: docs }] = await Promise.all([
     supabase.from("job_matches").select("*").eq("id", id).maybeSingle<JobMatch>(),

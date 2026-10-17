@@ -8,6 +8,8 @@ import { SubmitButton } from "@/components/SubmitButton";
 import Link from "next/link";
 import { disconnectTelegram, saveBaseResume, saveDiscord, setSearchBriefs } from "./actions";
 import { TestButton } from "./TestButton";
+import { DataControls } from "./DataControls";
+import { isDemoEmail } from "@/lib/demo";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -153,6 +155,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </div>
         </div>
       </div>
+
+      <section className="panel" id="data" style={{ marginTop: 20 }}>
+        <span className="eyebrow">Your data</span>
+        <h2 style={{ fontSize: "1.3rem", margin: "8px 0 4px" }}>Download or delete your data</h2>
+        <p className="muted small">It&apos;s yours. Take a copy any time, or delete it here instantly. See the <a className="linklike" href="/privacy">privacy policy</a>.</p>
+        <DataControls demo={isDemoEmail(user.email)} />
+      </section>
     </>
   );
 }

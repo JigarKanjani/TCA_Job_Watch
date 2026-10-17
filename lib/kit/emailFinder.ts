@@ -1,5 +1,7 @@
 import "server-only";
 import { checkJobUrl } from "@/lib/jd";
+import { allow } from "@/lib/ratelimit";
+import { safeFetch } from "@/lib/safeFetch";
 
 // Finds the most likely work email for a recruiter or hiring manager.
 //  1. Company domain: typed by the user, or looked up from the company name
@@ -69,6 +71,7 @@ async function getJson(url: string, ms = 4500, init?: RequestInit) {
 }
 
 async function mxLookup(domain: string): Promise<{ ok: boolean; provider: string | null }> {
+  if (!(await allow("dns", "all"))) return { ok: false, provider: null };
   const data = (await getJson(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=MX`)) as
     | { Answer?: { data: string }[] }
     | null;
@@ -86,6 +89,7 @@ async function mxLookup(domain: string): Promise<{ ok: boolean; provider: string
 }
 
 async function suggestDomains(company: string) {
+  if (!(await allow("clearbit", "all"))) return [];
   const data = (await getJson(`https://autocomplete.clearbit.com/v1/companies/suggest?query=${encodeURIComponent(company)}`)) as
     | { name: string; domain: string }[]
     | null;
@@ -104,9 +108,9 @@ async function publicEmails(domain: string): Promise<string[]> {
   const pages = [`https://${domain}`, `https://${domain}/contact`, `https://${domain}/contact-us`, `https://${domain}/careers`];
   await Promise.all(
     pages.map(async (u) => {
-      if (typeof checkJobUrl(u) === "string") return;
+      if (typeof checkJobUrl(u) === "string" || !(await allow("site_fetch", "all"))) return;
       try {
-        const res = await fetch(u, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(5000), cache: "no-store" });
+        const res = await safeFetch(u, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(5000), cache: "no-store" });
         if (!res.ok) return;
         grab((await res.text()).slice(0, 1_500_000).replace(/&#64;|\[at\]|\(at\)/gi, "@"));
       } catch {}

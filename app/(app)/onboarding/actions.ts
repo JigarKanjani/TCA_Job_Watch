@@ -12,6 +12,8 @@ import { deliverMatches, siteOrigin, type DeliverJob } from "@/lib/deliver";
 import { estimatePay, payView } from "@/lib/pay/estimate";
 import { formatRange, money } from "@/lib/pay/parse";
 import { windowOpenAt } from "@/lib/schedule";
+import { allow, LIMITED } from "@/lib/ratelimit";
+import { cleanText } from "@/lib/sanitize";
 
 export type CreateAlertState = { error?: string };
 
@@ -38,17 +40,18 @@ export async function createAlert(_prev: CreateAlertState, form: FormData): Prom
   const { supabase, user, profile } = await requireProfile();
   const ent = entitlementsFor(profile?.plan);
   if (isDemoEmail(user.email)) return { error: DEMO_MESSAGE };
+  if (!(await allow("create_alert", user.id))) return { error: LIMITED };
 
-  const role = String(form.get("role") ?? "").trim();
-  const city = String(form.get("city") ?? "").trim();
-  const country = String(form.get("country") ?? "Canada");
-  const workMode = String(form.get("work_mode") ?? "any");
-  const frequency = String(form.get("frequency") ?? "instant");
-  const timezone = String(form.get("timezone") ?? "America/Edmonton");
-  const channels = form.getAll("channels").map(String);
-  const windows = form.getAll("windows").map(String);
-  const discordUrl = String(form.get("discord_webhook_url") ?? "").trim();
-  const excludes = String(form.get("exclude_keywords") ?? "")
+  const role = cleanText(form.get("role"), 101);
+  const city = cleanText(form.get("city"), 101);
+  const country = cleanText(form.get("country"), 20) || "Canada";
+  const workMode = cleanText(form.get("work_mode"), 20) || "any";
+  const frequency = cleanText(form.get("frequency"), 20) || "instant";
+  const timezone = cleanText(form.get("timezone"), 64) || "America/Edmonton";
+  const channels = [...new Set(form.getAll("channels").map((v) => cleanText(v, 20)))].slice(0, 5);
+  const windows = [...new Set(form.getAll("windows").map((v) => cleanText(v, 20)))].slice(0, 10);
+  const discordUrl = cleanText(form.get("discord_webhook_url"), 300);
+  const excludes = cleanText(form.get("exclude_keywords"), 2000)
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean)
@@ -160,8 +163,9 @@ export type TypicalPay = { range: string; median: string; floor: number; note: s
 
 /** Typical pay for a role and city, shown while setting the salary floor. */
 export async function typicalPay(role: string, city: string, country: string): Promise<TypicalPay> {
-  await requireProfile();
-  const e = estimatePay(role.trim().slice(0, 100), city.trim().slice(0, 100), country === "USA" ? "US" : "CA");
+  const { user } = await requireProfile();
+  if (!(await allow("typical_pay", user.id))) return null;
+  const e = estimatePay(cleanText(role, 100), cleanText(city, 100), country === "USA" ? "US" : "CA");
   if (!e) return null;
   return {
     range: formatRange(e.min, e.max),

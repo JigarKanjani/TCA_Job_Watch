@@ -74,6 +74,32 @@ picks (posted pay first), companies hiring, and a button back to the sorter (`li
   send what's due. Users can turn briefs off in Settings; every brief links there.
 - An instant alert's first batch follows the same rule: sent now only if a window is open.
 
+## Your data, security and limits
+
+**Your data.** Settings → *Your data* lets people download everything stored about them (JSON), delete their job log, documents (files included), alerts, or all of it, and delete their account. Account deletion removes the stored files, then calls `delete_my_account()` (migration `20261017000014`), which removes the sign-in; everything else cascades from it.
+
+**Injection.** No SQL is built from strings: Supabase/PostgREST takes values as parameters, database functions use typed arguments with no dynamic SQL, and Row Level Security limits every query to the signed-in user. Inputs are cleaned in `lib/sanitize.ts` (type, length, control characters, UUID/date/enum checks). The job-log search is the only filter string built from user text; `filterTerm()` whitelists its characters and the value is quoted. Links people paste are fetched through `lib/safeFetch.ts`, which only allows public hosts and re-checks every redirect and DNS answer.
+
+**CSRF and framing.** Server actions are POST-only and Next.js rejects them when `Origin` doesn't match the host. Cookie-based route handlers (`/auth/demo`, `/auth/signout`, the data export) refuse cross-site requests, session cookies are `SameSite=Lax`, and every page is sent with `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, HSTS and a strict referrer policy (`next.config.ts`).
+
+**Rate limits** (`lib/ratelimit.ts`, counted in Postgres by `rate_limit_hit()` so all servers and the worker share them; fails open):
+
+| What | Limit |
+| --- | --- |
+| Find jobs now / new alerts | 8 / 12 per user per hour |
+| Add job / fetch description | 60 / 40 per user per hour |
+| Application kit / email finder | 150 / 25 per user per hour |
+| Test messages · export · deletes | 6 · 10 · 10 per user per hour |
+| Other saves (swipes, stages, settings) | 900 per user per hour |
+| `/api/pay` · demo sign-in | 300 per IP per hour · 15 per IP per 15 min |
+| Telegram bot messages in | 30 per chat per minute |
+| LinkedIn (on-demand) · Jina Reader · Clearbit · DNS · company sites | 240/h · 15/min · 300/h · 600/h · 600/h app-wide |
+| Email | 450 a day app-wide (Gmail's free limit is ~500) and 30 per address per day |
+
+Database backstops apply even to direct API calls: 600 jobs per user per hour and 50 documents (30 uploads per hour) per user. Telegram sends are paced at about one message a second per chat and Discord at two a second, both waiting and retrying once on a 429. The worker pauses between searches and does at most 40 per run. Emails carry a `List-Unsubscribe` link.
+
+**Set in the Supabase dashboard** (not in code): Authentication → Rate Limits (keep sign-up/sign-in and email-sending limits low, e.g. 30 emails/hour), and optionally Authentication → Attack Protection → CAPTCHA (Cloudflare Turnstile is free). Google Cloud: the OAuth client needs no quota changes; keep the consent screen's authorised domains to this site only.
+
 ## Delivery windows
 Defined in `lib/config.ts` and mirrored in `worker/run_alerts.py` (`WINDOWS`) — keep them in sync.
 Matches found outside a user's windows wait and are delivered when the next window opens, in the

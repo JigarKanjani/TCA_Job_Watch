@@ -65,12 +65,13 @@ export default function PrivacyPage() {
       <h2>Your choices</h2>
       <ul>
         <li>Edit or delete alerts, jobs and documents at any time in the app.</li>
+        <li><b>Download your data</b> as a file, or <b>delete some or all of it, or your whole account</b>, instantly in <Link href="/settings#data">Settings → Your data</Link>.</li>
         <li>Disconnect Telegram or Discord in <Link href="/settings">Settings</Link>, or send /stop to the bot.</li>
-        <li>To delete your account and everything in it, or to ask what we hold about you, email {contact}. We act on requests within 30 days.</li>
+        <li>If you can&apos;t sign in, email {contact} to have your account deleted or to ask what we hold about you. We act on requests within 30 days.</li>
       </ul>
 
       <h2>Keeping data</h2>
-      <p>We keep your data while your account exists. When you delete your account, your data and files are removed from our systems.</p>
+      <p>We keep your data while your account exists. When you delete your account, your data and files are removed from our systems right away.</p>
 
       <h2>Changes</h2>
       <p>If we change this policy, we&apos;ll update the date above. Questions: {contact}.</p>

@@ -17,6 +17,7 @@ const ERRORS: Record<string, string> = {
   not_signed_in: "Please sign in to continue.",
   not_configured: "Sign-in is being switched on. Check back shortly.",
   demo_unavailable: "The demo is taking a break. Please try again in a minute.",
+  demo_busy: "Lots of demo sign-ins from your network. Please try again in a few minutes.",
 };
 
 export default async function LoginPage({
@@ -39,7 +40,7 @@ export default async function LoginPage({
         </p>
         {params.error && (
           <p className="notice notice-err" style={{ marginBottom: 16, textAlign: "left" }}>
-            {ERRORS[params.error] ?? "Sign-in didn't finish. Please try again."}
+            {(Object.hasOwn(ERRORS, params.error) && ERRORS[params.error]) || "Sign-in didn't finish. Please try again."}
           </p>
         )}
         {!isSupabaseConfigured && (

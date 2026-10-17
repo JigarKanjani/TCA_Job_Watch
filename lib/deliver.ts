@@ -2,6 +2,7 @@ import "server-only";
 import { headers } from "next/headers";
 import { APP_NAME } from "@/lib/config";
 import { sendDiscord, sendEmail, sendTelegram } from "@/lib/notify";
+import { sleep } from "@/lib/ratelimit";
 
 // Sends a batch of matches the same way the scheduled worker does
 // (worker/run_alerts.py — keep the wording in sync).
@@ -110,14 +111,18 @@ export async function deliverMatches(opts: {
       }
       if (ch === "telegram" && to.telegram_chat_id) {
         let ok = true;
-        for (const text of chunks([head, ...(note ? [note] : []), ...jobs.map((m) => line(m, site)), ...(hasEstimate(jobs) ? [EST_NOTE] : [])], 3800)) {
+        const parts = chunks([head, ...(note ? [note] : []), ...jobs.map((m) => line(m, site)), ...(hasEstimate(jobs) ? [EST_NOTE] : [])], 3800);
+        for (const [i, text] of parts.entries()) {
+          if (i) await sleep(1100); // one message a second per chat
           ok = (await sendTelegram(to.telegram_chat_id, text)).ok && ok;
         }
         results.telegram = ok;
       }
       if (ch === "discord" && to.discord_webhook_url) {
         let ok = true;
-        for (const text of chunks([`**${head}**`, ...(note ? [note] : []), ...jobs.map((m) => line(m, site, true)), ...(hasEstimate(jobs) ? [`-# ${EST_NOTE}`] : [])], 1900)) {
+        const parts = chunks([`**${head}**`, ...(note ? [note] : []), ...jobs.map((m) => line(m, site, true)), ...(hasEstimate(jobs) ? [`-# ${EST_NOTE}`] : [])], 1900);
+        for (const [i, text] of parts.entries()) {
+          if (i) await sleep(500); // under Discord's 5 per 2 seconds
           ok = (await sendDiscord(to.discord_webhook_url, text)).ok && ok;
         }
         results.discord = ok;
