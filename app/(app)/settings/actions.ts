@@ -19,6 +19,16 @@ export async function saveDiscord(form: FormData) {
   redirect(`/settings?flash=${url ? "discord_saved" : "discord_removed"}`);
 }
 
+export async function saveBaseResume(form: FormData) {
+  const { supabase, user } = await requireUser();
+  if (isDemoEmail(user.email)) redirect("/settings?flash=demo_readonly");
+  const id = String(form.get("doc_id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) redirect("/settings");
+  const { error } = await supabase.from("profiles").update({ base_resume_doc_id: id }).eq("id", user.id);
+  revalidatePath("/settings");
+  redirect(`/settings?flash=${error ? "base_resume_failed" : "base_resume_saved"}`);
+}
+
 export async function disconnectTelegram() {
   const { supabase, user } = await requireUser();
   if (isDemoEmail(user.email)) redirect("/settings?flash=demo_readonly");

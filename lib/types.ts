@@ -9,6 +9,7 @@ export type Profile = {
   discord_webhook_url: string | null;
   plan: string;
   plan_status: string | null;
+  base_resume_doc_id?: string | null;
   created_at: string;
 };
 

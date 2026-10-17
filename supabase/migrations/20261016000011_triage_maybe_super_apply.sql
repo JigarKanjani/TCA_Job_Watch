@@ -12,10 +12,9 @@ create index if not exists job_matches_user_status_idx on public.job_matches (us
 
 -- A brand-new alert's first batch is queued for delivery (instant alerts are
 -- sent straight away by the app; daily/weekly ones wait for the digest).
--- "Find jobs now" keeps marking its finds as seen, since the user is looking
--- at them in the app.
-drop function if exists public.save_found_jobs(uuid, jsonb);
-create or replace function public.save_found_jobs(p_alert_id uuid, p_jobs jsonb, p_queue boolean default false)
+-- Same checks as save_found_jobs, which "Find jobs now" keeps using: it marks
+-- finds as seen because the user is looking at them in the app.
+create or replace function public.queue_found_jobs(p_alert_id uuid, p_jobs jsonb)
 returns integer
 language plpgsql
 security definer
@@ -30,7 +29,6 @@ begin
   if not exists (select 1 from public.alerts where id = p_alert_id and user_id = v_user) then
     raise exception 'alert not found';
   end if;
-  -- Backstop rate limit: one on-demand save per alert every 2 minutes.
   if exists (select 1 from public.alerts where id = p_alert_id and last_checked_at > now() - interval '2 minutes') then
     return 0;
   end if;
@@ -39,14 +37,14 @@ begin
   end if;
 
   insert into public.job_matches (user_id, alert_id, job_url, title, company, location, site,
-                                  is_remote, salary, date_posted, source, notified_at)
+                                  is_remote, salary, date_posted, source)
   select v_user, p_alert_id,
          left(j ->> 'job_url', 2000), left(j ->> 'title', 300), left(j ->> 'company', 300),
          left(j ->> 'location', 300), left(j ->> 'site', 50),
          case when j ->> 'is_remote' in ('true','false') then (j ->> 'is_remote')::boolean end,
          left(j ->> 'salary', 120),
          case when (j ->> 'date_posted') ~ '^\d{4}-\d{2}-\d{2}' then left(j ->> 'date_posted', 10)::date end,
-         'alert', case when p_queue then null else now() end
+         'alert'
   from jsonb_array_elements(p_jobs) as j
   where (j ->> 'job_url') ~ '^https://'
     and char_length(j ->> 'job_url') between 8 and 2000
@@ -57,8 +55,8 @@ begin
   return v_count;
 end;
 $$;
-revoke execute on function public.save_found_jobs(uuid, jsonb, boolean) from public, anon;
-grant execute on function public.save_found_jobs(uuid, jsonb, boolean) to authenticated;
+revoke execute on function public.queue_found_jobs(uuid, jsonb) from public, anon;
+grant execute on function public.queue_found_jobs(uuid, jsonb) to authenticated;
 
 -- The app sent an instant alert itself: mark those matches delivered.
 create or replace function public.mark_alert_delivered(p_alert_id uuid, p_match_ids uuid[])
@@ -127,5 +125,10 @@ begin
   return v_result;
 end;
 $$;
+
+-- Application kit: the base resume to tailor from (picked in Settings).
+alter table public.profiles add column if not exists base_resume_doc_id uuid references public.documents(id) on delete set null;
+grant update (base_resume_doc_id) on public.profiles to authenticated;
+create index if not exists profiles_base_resume_idx on public.profiles (base_resume_doc_id);
 
 notify pgrst, 'reload schema';

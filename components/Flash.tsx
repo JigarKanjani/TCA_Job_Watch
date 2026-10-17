@@ -1,5 +1,7 @@
 const MESSAGES: Record<string, { kind: "ok" | "err"; text: string }> = {
   alert_created: { kind: "ok", text: "Alert saved. We're watching. New matches show up here and in your alerts as soon as they're posted." },
+  base_resume_saved: { kind: "ok", text: "Base resume saved. The Application kit on each job will use it." },
+  base_resume_failed: { kind: "err", text: "Couldn't save your base resume. Please try again." },
   alert_created_found: { kind: "ok", text: "Alert saved and your first matches are in. Sort them now; new ones arrive automatically." },
   alert_deleted: { kind: "ok", text: "Alert deleted." },
   password_updated: { kind: "ok", text: "Password updated." },

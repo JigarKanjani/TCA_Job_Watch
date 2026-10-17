@@ -5,14 +5,16 @@ import { emailConfigured, telegramConfigured } from "@/lib/notify";
 import { entitlementsFor, PRICING } from "@/lib/plans";
 import { Flash } from "@/components/Flash";
 import { SubmitButton } from "@/components/SubmitButton";
-import { disconnectTelegram, saveDiscord } from "./actions";
+import Link from "next/link";
+import { disconnectTelegram, saveBaseResume, saveDiscord } from "./actions";
 import { TestButton } from "./TestButton";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ flash?: string }> }) {
   const { flash } = await searchParams;
-  const { user, profile } = await requireProfile();
+  const { supabase, user, profile } = await requireProfile();
+  const { data: resumes } = await supabase.from("documents").select("id, name").eq("kind", "resume").order("created_at", { ascending: false });
   const ent = entitlementsFor(profile?.plan);
   const email = profile?.email ?? user.email ?? "";
   const tgReady = Boolean(TELEGRAM_BOT_USERNAME) && telegramConfigured();
@@ -95,6 +97,27 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </div>
 
         <div className="stack">
+          <div className="panel">
+            <span className="eyebrow">Base resume</span>
+            <p className="small muted" style={{ margin: "8px 0 12px" }}>
+              The Application kit on every job tailors this resume and builds your cover letters, follow-ups and interview prep from it.
+            </p>
+            {resumes?.length ? (
+              <form action={saveBaseResume} className="row" style={{ alignItems: "stretch" }}>
+                <select className="input" style={{ flex: "1 1 200px" }} name="doc_id" defaultValue={profile?.base_resume_doc_id ?? resumes[0].id} aria-label="Base resume">
+                  {resumes.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+                <SubmitButton className="btn btn-dark btn-sm">Save</SubmitButton>
+              </form>
+            ) : (
+              <p className="small">No resume yet.</p>
+            )}
+            <p className="hint" style={{ marginTop: 10 }}>
+              <Link className="linklike" href="/documents">Upload a resume</Link> (PDF or Word works best).
+            </p>
+          </div>
           <div className="panel">
             <span className="eyebrow">Your plan</span>
             <h2 style={{ fontSize: "1.3rem", margin: "8px 0 6px" }}>{ent.label}</h2>

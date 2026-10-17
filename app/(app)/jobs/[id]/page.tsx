@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { requireProfile } from "@/lib/auth";
+import { isDemoEmail } from "@/lib/demo";
+import { entitlementsFor } from "@/lib/plans";
 import { hostOf, shortDate, timeAgo } from "@/lib/format";
 import type { DocumentRow, JobMatch } from "@/lib/types";
 import { Flash } from "@/components/Flash";
 import { SubmitButton } from "@/components/SubmitButton";
 import { deleteJob } from "../actions";
 import { TrackerForm, DescriptionPanel } from "./JobForms";
+import { ApplicationKit } from "@/components/kit/ApplicationKit";
 
 export const metadata: Metadata = { title: "Job" };
 
@@ -21,7 +24,7 @@ export default async function JobPage({
   const { id } = await params;
   const { flash } = await searchParams;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const { supabase } = await requireUser();
+  const { supabase, user, profile } = await requireProfile();
   const [{ data: job }, { data: docs }] = await Promise.all([
     supabase.from("job_matches").select("*").eq("id", id).maybeSingle<JobMatch>(),
     supabase.from("documents").select("id, name, kind").order("created_at", { ascending: false }).returns<Pick<DocumentRow, "id" | "name" | "kind">[]>(),
@@ -35,6 +38,9 @@ export default async function JobPage({
 
   const resumes = (docs ?? []).filter((d) => d.kind === "resume");
   const covers = (docs ?? []).filter((d) => d.kind === "cover_letter");
+  const baseResume = profile?.base_resume_doc_id ?? null;
+  const defaultResume = [job.resume_doc_id, baseResume, resumes[0]?.id].find((id) => id && resumes.some((r) => r.id === id)) ?? null;
+  const docsRemaining = entitlementsFor(profile?.plan).maxDocuments - (docs ?? []).length;
 
   return (
     <>
@@ -66,6 +72,20 @@ export default async function JobPage({
           </div>
         </div>
       </div>
+
+      <ApplicationKit
+        jobId={job.id}
+        jobUrl={job.job_url}
+        company={job.company ?? ""}
+        resumes={resumes.map((r) => ({ id: r.id, name: r.name }))}
+        defaultResumeId={defaultResume}
+        userId={user.id}
+        demo={isDemoEmail(user.email)}
+        docsRemaining={docsRemaining}
+      />
     </>
   );
 }
+
+// Reading a resume and running AI drafts can take a few seconds.
+export const maxDuration = 60;

@@ -708,6 +708,44 @@ kbd { font-family: var(--mono); font-size: 0.78em; padding: 1px 6px; border-radi
 .status-select.st-maybe { background-color: color-mix(in srgb, var(--signal-soft) 14%, var(--surface)); }
 .archive-link { margin-left: auto; }
 
+/* ================= application kit ================= */
+.kit { margin-top: 20px; display: grid; gap: 16px; }
+.kit-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.kit-head h2 { font-size: clamp(1.2rem, 2.2vw, 1.5rem); margin: 6px 0 4px; }
+.kit-resume { display: grid; gap: 6px; min-width: 240px; flex: 0 1 320px; }
+.kit-loading { display: flex; gap: 10px; align-items: center; color: var(--muted); padding: 18px 0; }
+.radar-glyph.is-spin::after { animation: spin 0.9s linear infinite; }
+.kit-fit { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.kit-score { display: grid; justify-items: center; min-width: 76px; }
+.kit-score b { font-family: var(--display); font-size: 1.6rem; line-height: 1.1; color: var(--accent-ink); }
+.kit-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
+.chip-ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); background: color-mix(in srgb, var(--ok) 8%, var(--surface)); }
+.chip-gap { color: var(--signal); border-color: color-mix(in srgb, var(--signal-soft) 40%, var(--line)); background: color-mix(in srgb, var(--signal-soft) 9%, var(--surface)); }
+.chip-btn { cursor: pointer; margin: 3px 6px 3px 0; font: inherit; font-size: 0.8rem; }
+.kit-tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+.kit-tabs::-webkit-scrollbar { display: none; }
+.kit-tabs button { font: inherit; font-weight: 600; font-size: 0.9rem; padding: 10px 14px; border: none; border-bottom: 2px solid transparent; background: none; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.kit-tabs button:hover { color: var(--fg); }
+.kit-tabs button.on { color: var(--fg); border-bottom-color: var(--accent); }
+.kit-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.kit-row .field { flex: 1 1 160px; min-width: 0; }
+.kit-row .field.grow { flex: 2 1 240px; }
+.kit-text { width: 100%; font-family: var(--body); font-size: 0.92rem; line-height: 1.55; resize: vertical; min-height: 180px; }
+.kit-prompt { font-family: var(--mono); font-size: 0.78rem; }
+.kit-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.kit-seg button { font-size: 0.84rem; }
+.finder-out { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
+.finder-out .chip { margin-left: 8px; }
+.finder-list { list-style: none; margin: 0; padding: 0; }
+.finder-list li { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid var(--line); }
+.finder-list li:first-child { border-top: none; }
+.finder-list .info { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.finder-list .info b { font-family: var(--mono); font-size: 0.88rem; overflow-wrap: anywhere; }
+.conf { font-family: var(--mono); font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; flex: none; }
+.conf-high { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.conf-medium { color: var(--signal); background: color-mix(in srgb, var(--signal-soft) 13%, transparent); }
+.conf-low { color: var(--muted); background: var(--surface-2); }
+
 @media (max-width: 760px), (min-width: 1200px) and (hover: hover) and (pointer: fine) and (max-width: 1330px) {
   .triage-banner { grid-template-columns: auto 1fr; }
   .tb-actions { grid-column: 1 / -1; justify-content: flex-start; }
@@ -733,6 +771,8 @@ kbd { font-family: var(--mono); font-size: 0.78em; padding: 1px 6px; border-radi
   .stamp { font-size: 1.1rem; }
   .tb-stack { width: 52px; height: 60px; }
   .archive-link { margin-left: 0; }
+  .finder-list li { flex-wrap: wrap; }
+  .kit-resume { flex-basis: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .swipe-card, .swipe-card.ghost, .triage-progress i, .cd-bar i { transition: none; }

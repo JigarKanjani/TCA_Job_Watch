@@ -108,9 +108,9 @@ export async function createAlert(_prev: CreateAlertState, form: FormData): Prom
       .slice(0, 40);
     if (keep.length) {
       let queued = true;
-      let saved = await supabase.rpc("save_found_jobs", { p_alert_id: created.id, p_jobs: keep, p_queue: true });
+      let saved = await supabase.rpc("queue_found_jobs", { p_alert_id: created.id, p_jobs: keep });
       if (saved.error) {
-        // Before the triage migration the RPC has no p_queue (it marks jobs as seen).
+        // Fallback: save_found_jobs marks them as already seen.
         queued = false;
         saved = await supabase.rpc("save_found_jobs", { p_alert_id: created.id, p_jobs: keep });
       }
