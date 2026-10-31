@@ -54,12 +54,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     supabase.from("documents").select("id", { count: "exact", head: true }),
     supabase
       .from("job_matches")
-      .select("id, alert_id, title, company, location, salary, site, is_remote, date_posted, found_at, job_url, description", { count: "exact" })
+      .select("id, alert_id, title, company, location, salary, site, is_remote, date_posted, found_at, job_url, description, reality", { count: "exact" })
       .eq("status", "new")
       .order("found_at", { ascending: false })
       .order("id", { ascending: true })
       .limit(40)
-      .returns<Pick<JobMatch, "id" | "alert_id" | "title" | "company" | "location" | "salary" | "site" | "is_remote" | "date_posted" | "found_at" | "job_url" | "description">[]>(),
+      .returns<Pick<JobMatch, "id" | "alert_id" | "title" | "company" | "location" | "salary" | "site" | "is_remote" | "date_posted" | "found_at" | "job_url" | "description" | "reality">[]>(),
     loadBoard(),
     supabase.from("job_matches").select("id", { count: "exact", head: true }).eq("status", "not_interested"),
   ]);
@@ -107,6 +107,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     date_posted: j.date_posted,
     found_at: j.found_at,
     job_url: j.job_url,
+    reality: j.reality ?? null,
     snippet: snippetOf(j.description),
     alertRole: j.alert_id ? roleById.get(j.alert_id) ?? null : null,
     pay: payView({ ...j, country: j.alert_id ? countryById.get(j.alert_id) : null }),

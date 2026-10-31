@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireProfile, requireUser } from "@/lib/auth";
 import { briefAfterSearch } from "@/lib/briefs";
 import { DEMO_MESSAGE, isDemoEmail } from "@/lib/demo";
-import { searchLinkedIn } from "@/lib/linkedin";
-import { matchesAlert } from "@/lib/matching";
+import { searchJobs } from "@/lib/jobsearch";
+import { markSeen, matchesAlert, seenFrom } from "@/lib/matching";
 import { allow, LIMITED } from "@/lib/ratelimit";
 import { isUuid } from "@/lib/sanitize";
 import type { Alert } from "@/lib/types";
@@ -14,8 +14,8 @@ export type FindState = { ok: boolean; found?: number; searched?: number; messag
 
 const COOLDOWN_MS = 2 * 60 * 1000;
 
-// "Find jobs now": search LinkedIn for every active alert right away and drop
-// new matches straight into the log (and the swipe deck).
+// "Find jobs now": search LinkedIn and freehire.me for every active alert right
+// away and drop new matches straight into the log (and the swipe deck).
 export async function findJobsNow(): Promise<FindState> {
   const { supabase, user, profile } = await requireProfile();
   if (isDemoEmail(user.email)) return { ok: false, message: DEMO_MESSAGE };
@@ -23,10 +23,10 @@ export async function findJobsNow(): Promise<FindState> {
 
   const { data: alerts } = await supabase
     .from("alerts")
-    .select("id, role, city, country, work_mode, min_salary, exclude_keywords, last_checked_at, channels, windows, timezone")
+    .select("id, role, city, country, work_mode, min_salary, max_experience, exclude_keywords, last_checked_at, channels, windows, timezone")
     .eq("active", true)
     .returns<
-      Pick<Alert, "id" | "role" | "city" | "country" | "work_mode" | "min_salary" | "exclude_keywords" | "last_checked_at" | "channels" | "windows" | "timezone">[]
+      Pick<Alert, "id" | "role" | "city" | "country" | "work_mode" | "min_salary" | "max_experience" | "exclude_keywords" | "last_checked_at" | "channels" | "windows" | "timezone">[]
     >();
   if (!alerts?.length) return { ok: false, message: "Create an alert first, then we can search for you." };
 
@@ -35,8 +35,12 @@ export async function findJobsNow(): Promise<FindState> {
   if (!due.length) return { ok: true, found: 0, searched: 0, message: "We just searched — give it a couple of minutes before searching again." };
   if (!(await allow("find_now", user.id))) return { ok: false, found: 0, searched: 0, message: LIMITED };
 
-  const { data: known } = await supabase.from("job_matches").select("job_url").limit(5000);
-  const seen = new Set((known ?? []).map((r) => r.job_url as string));
+  const { data: known } = await supabase
+    .from("job_matches")
+    .select("job_url, title, company, found_at")
+    .order("found_at", { ascending: false })
+    .limit(5000);
+  const seen = seenFrom(known ?? []);
 
   let found = 0;
   let blocked = 0;
@@ -45,10 +49,10 @@ export async function findJobsNow(): Promise<FindState> {
   const runOne = async (a: (typeof queue)[number]) => {
     // Look back further on the first search so a brand-new alert fills up.
     const hoursOld = a.last_checked_at ? 72 : 168;
-    const res = await searchLinkedIn({ role: a.role, city: a.city, country: a.country, workMode: a.work_mode, hoursOld });
+    const res = await searchJobs({ role: a.role, city: a.city, country: a.country, workMode: a.work_mode, hoursOld });
     if (res.blocked) blocked++;
     const keep = res.jobs.filter((j) => matchesAlert(a, j, seen)).slice(0, 40);
-    keep.forEach((j) => seen.add(j.job_url));
+    keep.forEach((j) => markSeen(seen, j));
     if (!keep.length) return;
     const { data, error } = await supabase.rpc("save_found_jobs", { p_alert_id: a.id, p_jobs: keep });
     if (!error && typeof data === "number") found += data;

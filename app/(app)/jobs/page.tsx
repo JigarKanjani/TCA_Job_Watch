@@ -7,6 +7,7 @@ import type { Alert, DocumentRow, JobMatch } from "@/lib/types";
 import { Flash } from "@/components/Flash";
 import { StatusSelect } from "@/components/StatusSelect";
 import { FindJobsButton } from "@/components/FindJobsButton";
+import { FreshTag } from "@/components/FreshTag";
 import { PayFinePrint, PayTag } from "@/components/PayTag";
 import { payView } from "@/lib/pay/estimate";
 import { cleanText, filterTerm, isUuid } from "@/lib/sanitize";
@@ -29,7 +30,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
 
   let query = supabase
     .from("job_matches")
-    .select("id, alert_id, job_url, title, company, location, site, salary, found_at, notified_at, status, applied_at, resume_doc_id, source, pay_hint")
+    .select("id, alert_id, job_url, title, company, location, site, salary, date_posted, found_at, notified_at, status, applied_at, resume_doc_id, source, pay_hint, reality")
     .order("found_at", { ascending: false })
       .order("id", { ascending: true })
     .limit(200);
@@ -123,7 +124,11 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
                     </div>
                   </td>
                   <td className="small">{j.location ?? "—"}{j.pay && <div><PayTag pay={j.pay} className="pay-inline" /></div>}</td>
-                  <td className="small nowrap">{shortDate(j.found_at)}{j.notified_at ? <div className="muted">sent</div> : j.source === "alert" ? <div className="muted">queued</div> : null}</td>
+                  <td className="small nowrap">
+                    {shortDate(j.found_at)}
+                    {j.notified_at ? <div className="muted">sent</div> : j.source === "alert" ? <div className="muted">queued</div> : null}
+                    {j.status === "new" || j.status === "saved" || j.status === "maybe" ? <div><FreshTag reality={j.reality} datePosted={j.date_posted} /></div> : null}
+                  </td>
                   <td><StatusSelect id={j.id} status={j.status} /></td>
                   <td className="small">{j.resume_doc_id ? docName.get(j.resume_doc_id) ?? "—" : <span className="muted">—</span>}</td>
                 </tr>

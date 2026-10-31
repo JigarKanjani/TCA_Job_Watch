@@ -1,5 +1,6 @@
 import "server-only";
 import { allow } from "@/lib/ratelimit";
+import type { Reality, Requirement } from "@/lib/types";
 
 // Fast on-demand search against LinkedIn's public job-search pages (the same
 // source the scheduled JobSpy worker uses). Used by "Find jobs now", so it must
@@ -13,8 +14,16 @@ export type FoundJob = {
   date_posted: string | null;
   salary: string | null;
   is_remote: boolean | null;
-  site: "linkedin";
+  /** Where the posting lives: "linkedin", "indeed", or an ATS such as "workday". */
+  site: string;
+  /** Which search found it (stored in job_matches.feed). */
+  feed?: "linkedin" | "jobspy" | "freehire";
+  description?: string | null;
+  reality?: Reality | null;
+  requirements?: Requirement[] | null;
+  experience_min?: number | null;
 };
+
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
@@ -48,6 +57,7 @@ export function parseCards(html: string): FoundJob[] {
       salary,
       is_remote: location ? /remote/i.test(location) : null,
       site: "linkedin",
+      feed: "linkedin",
     });
   }
   return jobs;

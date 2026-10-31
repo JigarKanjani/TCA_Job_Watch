@@ -28,7 +28,7 @@ async function buildContext(jobId: string, docId: string | null): Promise<KitCon
   if (!(await allow("kit", user.id))) return { error: LIMITED };
   const { data: job } = await supabase
     .from("job_matches")
-    .select("id, title, company, location, job_url, description, salary, alert_id")
+    .select("id, title, company, location, job_url, description, salary, alert_id, requirements")
     .eq("id", jobId)
     .maybeSingle();
   if (!job) return { error: "That job isn't in your log." };
@@ -41,7 +41,13 @@ async function buildContext(jobId: string, docId: string | null): Promise<KitCon
     if ("error" in r) resumeError = r.error;
     else ({ text: resume, name: resumeName } = r);
   }
-  const jd = plainJd(job.description as string | null);
+  let jd = plainJd(job.description as string | null);
+  // freehire.me lists requirements separately; use them when the description is short.
+  const reqs = Array.isArray(job.requirements) ? (job.requirements as { text?: unknown; priority?: unknown }[]) : [];
+  if (reqs.length && (jd ?? "").length < 600) {
+    const lines = reqs.filter((r) => typeof r.text === "string").map((r) => `• ${r.text}${r.priority === "preferred" ? " (nice to have)" : ""}`);
+    jd = [jd, `Requirements:\n${lines.join("\n")}`].filter(Boolean).join("\n\n");
+  }
   let country: string | null = null;
   if (job.alert_id) country = (await supabase.from("alerts").select("country").eq("id", job.alert_id).maybeSingle()).data?.country ?? null;
   const pay = payView({ title: job.title as string | null, location: job.location as string | null, salary: job.salary as string | null, description: job.description as string | null, country });

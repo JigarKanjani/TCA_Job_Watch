@@ -30,6 +30,7 @@ export const RULES = {
   telegram_in: { limit: 30, window: 60 },
   // App-wide budgets for the free services we call
   linkedin: { limit: 240, window: 3600 },
+  freehire: { limit: 120, window: 60 }, // its public API allows about 300 a minute
   jina: { limit: 15, window: 60 }, // keyless Jina Reader allows 20 a minute
   clearbit: { limit: 300, window: 3600 },
   dns: { limit: 600, window: 3600 },

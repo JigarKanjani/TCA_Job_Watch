@@ -5,7 +5,8 @@ JobWatch worker — runs every 30 minutes on GitHub Actions.
 
 Phase 1 (scrape):  alerts that are due for a fresh search are grouped by
                    identical search, scraped once with JobSpy (LinkedIn +
-                   Indeed), filtered per alert, and saved to the job log.
+                   Indeed) and freehire.me (employer career sites), filtered
+                   per alert, and saved to the job log.
 Phase 2 (deliver): queued matches are sent to each user's channels (email,
                    Telegram, Discord) when one of their delivery windows is
                    open in their timezone, respecting instant/daily/weekly.
@@ -24,6 +25,7 @@ import smtplib
 import ssl
 import sys
 import time
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from zoneinfo import ZoneInfo
@@ -53,6 +55,11 @@ PAUSE_BETWEEN_SEARCHES = 4.0
 SMTP_DAILY_LIMIT = 450
 EMAIL_PER_ADDRESS_DAILY = 30
 HOUR_BUCKETS = [3, 6, 12, 24, 48, 72]
+# freehire.me: open-source index of employer career sites (Workday, Greenhouse,
+# Lever, Oracle…). Public, keyless API; only the search terms are sent.
+FREEHIRE_API = "https://freehire.me/api/v1/agent/jobs/search"
+FREEHIRE_LIMIT = 50
+FREEHIRE_UA = f"{APP_NAME}/1.0 (job alerts; +https://tca-job-watch.vercel.app)"
 
 # Keep in sync with lib/config.ts (WINDOWS). Days: 0 = Monday … 6 = Sunday.
 WINDOWS = {
@@ -224,13 +231,195 @@ def scrape(role, city, country, work_mode, hours):
                 "currency": clean(row.get("currency")),
                 "date_posted": str(posted)[:10] if posted else None,
                 "description": (str(clean(row.get("description")) or "")[:20000]) or None,
+                "feed": "jobspy",
             }
         )
     return jobs
 
 
+FILLER = {"a", "an", "and", "the", "of", "for", "in", "at", "to", "with", "on", "senior", "sr",
+          "junior", "jr", "remote", "hybrid", "job", "jobs", "role", "position"}
+
+
+def _words(s):
+    s = unicodedata.normalize("NFKD", str(s or "").lower())
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return [w for w in re.split(r"[^a-z0-9+#]+", s) if w]
+
+
+def _stem(w):
+    return w[:-1] if len(w) > 4 and w.endswith("s") else w
+
+
+def title_matches_role(role, title):
+    """Every meaningful word of the role (or of one of its comma / "or"
+    alternatives) must start a word of the title. Keep in sync with
+    titleMatchesRole() in lib/matching.ts."""
+    t = _words(title)
+    options = [[_stem(w) for w in _words(alt) if w not in FILLER]
+               for alt in re.split(r",|;|\||\bor\b", role or "", flags=re.I)]
+    options = [o for o in options if o]
+    if not options:
+        return True
+    return any(all(any(tw.startswith(w) for tw in t) for w in o) for o in options)
+
+
+COMPANY_SUFFIX = re.compile(r"\b(inc|incorporated|ltd|limited|llc|llp|corp|corporation|co|company|canada|group|ulc)\b")
+
+
+def job_key(title, company):
+    """Same opening, different link (title + employer, normalised). Mirrors jobKey() in lib/matching.ts."""
+    c = re.sub(r"\(.*?\)", " ", str(company or "").lower())
+    c = re.sub(r"[^a-z0-9]+", "", COMPANY_SUFFIX.sub(" ", c))
+    t = re.sub(r"[^a-z0-9]+", "", str(title or "").lower())
+    return f"key:{t}|{c}" if c and t else None
+
+
+def _fh_company(v):
+    c = (str(v).strip()[:300] if isinstance(v, str) else "") or None
+    if not c or re.match(r"^[0-9a-f]{8}-[0-9a-f]{4}-", c, re.I) or re.search(r"\.(com|net|io|ca)(/|$)", c, re.I) \
+            or re.match(r"^[\w-]+\.[\w.-]+/\w+$", c):
+        return None  # an ADP tenant id or an Oracle host instead of a name
+    return c
+
+
+def _fh_int(v, lo, hi):
+    return v if isinstance(v, int) and not isinstance(v, bool) and lo <= v <= hi else None
+
+
+def _fh_job(raw, cc):
+    """One freehire posting, checked field by field (mirrors toJob() in lib/freehire.ts)."""
+    if not isinstance(raw, dict) or raw.get("closed_at"):
+        return None
+    url, title = raw.get("url"), raw.get("title")
+    if not isinstance(url, str) or not url.startswith("https://") or len(url) > 2000:
+        return None
+    if not isinstance(title, str) or not title.strip():
+        return None
+    countries = [c for c in raw.get("countries") or [] if isinstance(c, str)]
+    if countries and cc not in countries:
+        return None
+    e = raw.get("enrichment") if isinstance(raw.get("enrichment"), dict) else {}
+    cities = [c for c in raw.get("cities") or [] if isinstance(c, str)][:3]
+    loc = raw.get("location") if isinstance(raw.get("location"), str) and raw.get("location").strip() else None
+    if not loc and cities:
+        loc = ", ".join(cities) + (", United States" if cc == "us" else ", Canada")
+    mode = raw.get("work_mode")
+    source = raw.get("source") if isinstance(raw.get("source"), str) and re.match(r"^[a-z0-9-]{2,30}$", raw.get("source")) else "freehire"
+    posted = raw.get("posted_at") if isinstance(raw.get("posted_at"), str) and re.match(r"^\d{4}-\d{2}-\d{2}", raw.get("posted_at")) else None
+
+    def money(v):
+        return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and 0 < v < 10_000_000 else None
+
+    lo, hi = money(e.get("salary_min")), money(e.get("salary_max"))
+    interval = {"year": "yearly", "yearly": "yearly", "hour": "hourly", "hourly": "hourly",
+                "month": "monthly", "monthly": "monthly"}.get(str(e.get("salary_period") or "year"))
+    cur = e.get("salary_currency")
+    if not interval or (cur is not None and cur not in ("CAD", "USD")):
+        lo = hi = None
+
+    reality = raw.get("reality") if isinstance(raw.get("reality"), dict) else {}
+    real = {}
+    if reality.get("class") in ("fresh", "stale", "likely-evergreen"):
+        real["class"] = reality["class"]
+    for k, top in (("age_days", 9999), ("repost_count", 9999), ("mass_posting_count", 99999)):
+        if _fh_int(reality.get(k), 0, top) is not None:
+            real[k] = reality[k]
+    if isinstance(reality.get("fake_freshness"), bool):
+        real["fake_freshness"] = reality["fake_freshness"]
+
+    reqs = []
+    for r in e.get("requirements") or []:
+        if isinstance(r, dict) and isinstance(r.get("text"), str) and 2 <= len(r["text"].strip()) <= 300:
+            reqs.append({"text": r["text"].strip(), "priority": "preferred" if r.get("priority") == "preferred" else "required"})
+        if len(reqs) == 25:
+            break
+
+    desc = raw.get("description") if isinstance(raw.get("description"), str) else ""
+    return {
+        "job_url": url,
+        "title": title.strip()[:300],
+        "company": _fh_company(raw.get("company")),
+        "location": loc[:300] if loc else None,
+        "site": source,
+        "feed": "freehire",
+        "is_remote": True if mode == "remote" else False if mode in ("onsite", "hybrid") else None,
+        "min_amount": lo,
+        "max_amount": hi,
+        "interval": interval if (lo or hi) else None,
+        "currency": cur if (lo or hi) else None,
+        "date_posted": posted[:10] if posted else None,
+        "description": html_to_text(desc[:200000])[:20000] or None,
+        "reality": real or None,
+        "requirements": reqs or None,
+        "experience_min": _fh_int(e.get("experience_years_min"), 0, 50),
+    }
+
+
+def html_to_text(s):
+    s = re.sub(r"<(script|style|noscript)[\s\S]*?</\1>", "", s or "", flags=re.I)
+    s = re.sub(r"<li[^>]*>", "\n• ", s, flags=re.I)
+    s = re.sub(r"<br\s*/?>", "\n", s, flags=re.I)
+    s = re.sub(r"</(p|div|h[1-6]|ul|ol|li|tr|section)>", "\n", s, flags=re.I)
+    s = html.unescape(re.sub(r"<[^>]+>", "", s))
+    s = re.sub(r"[ \t]+", " ", s)
+    s = re.sub(r"\n[ \t]+", "\n", s)
+    return re.sub(r"\n{3,}", "\n\n", s).strip()
+
+
+def freehire(role, city, country, work_mode, hours):
+    """Employer-direct postings from freehire.me. Never raises: any failure means no jobs."""
+    cc = "us" if country == "USA" else "ca"
+    params = {"q": role[:100], "limit": FREEHIRE_LIMIT, "posted_within_days": min(30, max(1, math.ceil(hours / 24)))}
+    town = (city or "").split(",")[0].strip()
+    # `cities` alone narrows to the city; adding `countries` widens it again,
+    # so the country is checked on each result instead.
+    if work_mode == "remote":
+        params.update(countries=cc, work_mode="remote")
+    elif town:
+        params["cities"] = town.lower()
+    else:
+        params["countries"] = cc
+    try:
+        r = requests.get(FREEHIRE_API, params=params, timeout=15,
+                         headers={"User-Agent": FREEHIRE_UA, "Accept": "application/json"})
+        data = r.json().get("data") if r.ok and "json" in r.headers.get("content-type", "") else None
+    except Exception:
+        return []
+    jobs = [j for j in (_fh_job(x, cc) for x in (data if isinstance(data, list) else [])) if j and title_matches_role(role, j["title"])]
+    named = {f"{j['title']}|{j['location']}".lower() for j in jobs if j["company"]}
+    out, urls = [], set()
+    for j in jobs:
+        if j["job_url"] in urls or (not j["company"] and f"{j['title']}|{j['location']}".lower() in named):
+            continue
+        urls.add(j["job_url"])
+        out.append(j)
+    return out
+
+
+def merge_jobs(*lists):
+    """Alternate between sources and drop repeats (same link, or same title + employer)."""
+    out, seen = [], set()
+    for i in range(max((len(l) for l in lists), default=0)):
+        for l in lists:
+            if i >= len(l):
+                continue
+            j = l[i]
+            key = job_key(j.get("title"), j.get("company"))
+            if j["job_url"] in seen or (key and key in seen):
+                continue
+            seen.add(j["job_url"])
+            if key:
+                seen.add(key)
+            out.append(j)
+    return out
+
+
 def matches_alert(alert, job, seen):
     if job["job_url"] in seen:
+        return False
+    key = job_key(job.get("title"), job.get("company"))
+    if key and key in seen:
         return False
     title = (job.get("title") or "").lower()
     if not title:
@@ -257,7 +446,9 @@ def matches_alert(alert, job, seen):
 
     cap = alert.get("max_experience")
     if cap is not None:
-        need = min_years_required(job.get("description"))
+        need = job.get("experience_min")
+        if need is None:
+            need = min_years_required(job.get("description"))
         if need is not None and need > cap:
             return False
     return True
@@ -273,7 +464,12 @@ def phase_scrape():
 
     seen_by_user = {}
     for a in alerts:
-        seen_by_user.setdefault(a["user_id"], set()).update(a.get("seen_urls") or [])
+        seen = seen_by_user.setdefault(a["user_id"], set())
+        seen.update(a.get("seen_urls") or [])
+        for pair in a.get("seen_jobs") or []:
+            key = job_key(*pair[:2]) if isinstance(pair, list) and len(pair) >= 2 else None
+            if key:
+                seen.add(key)
 
     saved_total = 0
     if len(groups) > MAX_SEARCHES_PER_RUN:
@@ -288,7 +484,10 @@ def phase_scrape():
         except Exception as e:  # keep going; unstamped alerts retry next run
             log(f"scrape: search {i}/{len(groups)} failed ({type(e).__name__}); will retry next run")
             continue
-        log(f"scrape: search {i}/{len(groups)} → {len(jobs)} raw result(s), last {hours}h, {len(group)} alert(s)")
+        direct = freehire(sample["role"], sample.get("city") or "", country, mode, hours)
+        # Employer-direct postings first when the same job is on both.
+        jobs = merge_jobs(direct, jobs)
+        log(f"scrape: search {i}/{len(groups)} → {len(jobs)} raw result(s) ({len(direct)} from freehire), last {hours}h, {len(group)} alert(s)")
         for a in group:
             seen = seen_by_user.setdefault(a["user_id"], set())
             keep = [j for j in jobs if matches_alert(a, j, seen)][:MAX_SAVE_PER_ALERT]
@@ -301,7 +500,11 @@ def phase_scrape():
             except Exception as e:
                 log(f"scrape: saving for alert {a['id'][:8]} failed ({type(e).__name__})")
                 continue
-            seen.update(j["job_url"] for j in keep)
+            for j in keep:
+                seen.add(j["job_url"])
+                key = job_key(j.get("title"), j.get("company"))
+                if key:
+                    seen.add(key)
             saved_total += int(n)
             log(f"scrape: alert {a['id'][:8]} +{n} new")
     log(f"scrape: saved {saved_total} new match(es)")

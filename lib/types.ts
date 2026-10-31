@@ -58,7 +58,24 @@ export type JobMatch = {
   cover_doc_id: string | null;
   notes: string | null;
   updated_at: string;
+  /** Freshness read-out from freehire.me (null for other sources). */
+  reality?: Reality | null;
+  /** What the posting asks for, from freehire.me. */
+  requirements?: Requirement[] | null;
+  experience_min?: number | null;
+  /** Which search found it: "linkedin", "jobspy" or "freehire". */
+  feed?: string | null;
 };
+
+/** Is the posting real and current? (freehire.me's "reality" signal.) */
+export type Reality = {
+  class?: "fresh" | "stale" | "likely-evergreen";
+  age_days?: number;
+  repost_count?: number;
+  mass_posting_count?: number;
+  fake_freshness?: boolean;
+};
+export type Requirement = { text: string; priority: "required" | "preferred" };
 
 export type DocumentRow = {
   id: string;

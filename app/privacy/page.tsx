@@ -53,7 +53,7 @@ export default function PrivacyPage() {
         <li><b>Gmail</b>: sends alert and account emails.</li>
         <li><b>Telegram and Discord</b>: deliver alerts only if you connect them.</li>
         <li>
-          <b>Public sources, without your personal details:</b> LinkedIn and Indeed job searches use only the role and place from your alerts.
+          <b>Public sources, without your personal details:</b> LinkedIn, Indeed and freehire.me (an open-source index of employer career sites) job searches use only the role and place from your alerts.
           The email finder sends a company name to Clearbit&apos;s public company lookup and checks the domain with Google Public DNS. Reading
           a job posting may send that posting&apos;s link to Jina Reader.
         </li>

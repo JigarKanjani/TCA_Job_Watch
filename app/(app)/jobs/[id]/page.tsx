@@ -12,6 +12,8 @@ import { deleteJob } from "../actions";
 import { TrackerForm, DescriptionPanel } from "./JobForms";
 import { ApplicationKit } from "@/components/kit/ApplicationKit";
 import { PayFinePrint, PayTag } from "@/components/PayTag";
+import { FreshTag } from "@/components/FreshTag";
+import { siteLabel } from "@/lib/reality";
 import { payView } from "@/lib/pay/estimate";
 import { isUuid } from "@/lib/sanitize";
 
@@ -41,6 +43,10 @@ export default async function JobPage({
     alertCountry = data?.country ?? null;
   }
   const pay = payView({ ...job, country: alertCountry });
+  // Must-haves first, then nice-to-haves.
+  const requirements = [...(Array.isArray(job.requirements) ? job.requirements : [])].sort(
+    (a, b) => Number(a.priority === "preferred") - Number(b.priority === "preferred"),
+  );
 
   const resumes = (docs ?? []).filter((d) => d.kind === "resume");
   const covers = (docs ?? []).filter((d) => d.kind === "cover_letter");
@@ -67,6 +73,18 @@ export default async function JobPage({
               <PayFinePrint pay={pay} />
             </div>
           )}
+          {job.source === "alert" && (
+            <p className="row small" style={{ marginTop: 8, gap: 6 }}>
+              <span className="tag tag-muted">{siteLabel(job.site)}</span>
+              <FreshTag reality={job.reality} datePosted={job.date_posted} />
+              {job.experience_min != null && <span className="tag tag-muted">{job.experience_min}+ yrs asked</span>}
+              {job.feed === "freehire" && (
+                <span className="muted">
+                  via <a className="linklike" href="https://freehire.me" target="_blank" rel="noopener noreferrer">freehire.me</a>
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <a className="btn btn-accent" href={job.job_url} target="_blank" rel="noopener noreferrer">Open posting ↗</a>
       </div>
@@ -74,6 +92,19 @@ export default async function JobPage({
       <div className="dash-grid">
         <DescriptionPanel id={job.id} description={job.description} />
         <div className="stack">
+          {requirements.length > 0 && (
+            <div className="panel stack">
+              <span className="eyebrow">What they ask for</span>
+              <ul className="req-list">
+                {requirements.map((r, i) => (
+                  <li key={i}>
+                    <span className={`tag ${r.priority === "preferred" ? "tag-muted" : ""}`}>{r.priority === "preferred" ? "Nice to have" : "Must have"}</span>
+                    <span>{r.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <TrackerForm job={job} resumes={resumes} covers={covers} />
           <div className="panel">
             <span className="eyebrow">Danger zone</span>

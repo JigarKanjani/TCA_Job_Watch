@@ -6,8 +6,8 @@ import { CHANNELS, COUNTRIES, FREQUENCIES, WINDOWS, WORK_MODES } from "@/lib/con
 import { entitlementsFor } from "@/lib/plans";
 import { DISCORD_WEBHOOK_RE } from "@/lib/notify";
 import { DEMO_MESSAGE, isDemoEmail } from "@/lib/demo";
-import { searchLinkedIn } from "@/lib/linkedin";
-import { matchesAlert } from "@/lib/matching";
+import { searchJobs } from "@/lib/jobsearch";
+import { matchesAlert, seenFrom } from "@/lib/matching";
 import { deliverMatches, siteOrigin, type DeliverJob } from "@/lib/deliver";
 import { estimatePay, payView } from "@/lib/pay/estimate";
 import { formatRange, money } from "@/lib/pay/parse";
@@ -106,11 +106,15 @@ export async function createAlert(_prev: CreateAlertState, form: FormData): Prom
   // alert's first batch immediately. Daily/weekly batches wait for the digest.
   let found = 0;
   try {
-    const res = await searchLinkedIn({ role, city, country, workMode, hoursOld: 168 });
-    const { data: known } = await supabase.from("job_matches").select("job_url").limit(5000);
-    const seen = new Set((known ?? []).map((r) => r.job_url as string));
+    const res = await searchJobs({ role, city, country, workMode, hoursOld: 168 });
+    const { data: known } = await supabase
+      .from("job_matches")
+      .select("job_url, title, company, found_at")
+      .order("found_at", { ascending: false })
+      .limit(5000);
+    const seen = seenFrom(known ?? []);
     const keep = res.jobs
-      .filter((j) => matchesAlert({ city, work_mode: workMode, min_salary: minSalary, exclude_keywords: excludes }, j, seen))
+      .filter((j) => matchesAlert({ city, work_mode: workMode, min_salary: minSalary, max_experience: maxExperience, exclude_keywords: excludes }, j, seen))
       .slice(0, 40);
     if (keep.length) {
       let queued = true;

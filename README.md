@@ -2,7 +2,8 @@
 
 Job alerts + application tracker. Users sign in (Google or email/password), say which roles,
 places, salary floor, experience cap, **delivery windows** and **channels** they want, and get
-matches from LinkedIn + Indeed by **email, Telegram or Discord**. Every match lands in a
+matches from LinkedIn, Indeed and employer career sites (via [freehire.me](https://freehire.me)) by
+**email, Telegram or Discord**. Every match lands in a
 **job log / tracker** with stage, applied date, resume + cover letter used, notes and the full JD.
 
 New matches pop up in a **swipe sorter** (Apply / Super Apply with a 24-hour timer / Maybe / Not
@@ -14,7 +15,19 @@ emails, a recruiter email finder, and an interview-practice prompt for ChatGPT /
 |---|---|---|
 | Website + API | Vercel | Next.js 15 (App Router), React 19 |
 | Auth + DB + files | Supabase (`tca-job-watch`, ca-central-1) | Postgres + RLS, Auth, Storage |
-| Scraper + delivery | GitHub Actions, every 30 min | Python + [JobSpy](https://github.com/speedyapply/JobSpy) |
+| Scraper + delivery | GitHub Actions, every 30 min | Python + [JobSpy](https://github.com/speedyapply/JobSpy) + [freehire.me](https://github.com/strelov1/freehire) API |
+
+## Job sources
+| Source | What it adds | How |
+|---|---|---|
+| LinkedIn + Indeed | The biggest boards | JobSpy in the worker; LinkedIn's public search pages for "Find jobs now" |
+| [freehire.me](https://freehire.me) (open source) | Postings straight from employer career sites (Workday, Greenhouse, Lever, Oracle, Dayforce, iCIMS…), each with a **"is this job real?"** read-out (fresh / stale / maybe evergreen, reposts), the listed requirements and the minimum years asked for | Public keyless API, `GET /api/v1/agent/jobs/search` (`lib/freehire.ts`, `freehire()` in the worker) |
+
+Both run side by side; either can fail without affecting the other. freehire's keyword search is
+loose, so its results must match the alert's role in the title (`titleMatchesRole`), and the same
+opening found on two sources (same title + employer) is kept once, preferring the employer's own
+link. Only the role, city and country are sent. Postings show a freshness badge ("Posted 2d ago",
+"Reposted 4×", "Maybe evergreen"), and the job page lists must-haves and nice-to-haves.
 
 ## How it fits together
 ```
@@ -42,8 +55,8 @@ secrets `WORKER_SECRET`, `TELEGRAM_BOT_TOKEN`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_U
 `EMAIL_FROM`; variable `SITE_URL`.
 
 ## 100% free, no paid APIs
-Everything runs on free tiers and keyless, open resources: JobSpy (open source) and LinkedIn's
-public job pages for searching; schema.org data, page markup and Jina Reader (open source,
+Everything runs on free tiers and keyless, open resources: JobSpy (open source), LinkedIn's
+public job pages and freehire.me's public API (open source) for searching; schema.org data, page markup and Jina Reader (open source,
 keyless) for job descriptions; Clearbit's free company autocomplete and Google public DNS for the
 email finder; official open wage data (Job Bank, U.S. BLS) for pay estimates; Gmail SMTP,
 Telegram and Discord webhooks for alerts. Cover letters, resumes, emails and interview prompts are
@@ -93,7 +106,7 @@ picks (posted pay first), companies hiring, and a button back to the sorter (`li
 | Other saves (swipes, stages, settings) | 900 per user per hour |
 | `/api/pay` · demo sign-in | 300 per IP per hour · 15 per IP per 15 min |
 | Telegram bot messages in | 30 per chat per minute |
-| LinkedIn (on-demand) · Jina Reader · Clearbit · DNS · company sites | 240/h · 15/min · 300/h · 600/h · 600/h app-wide |
+| LinkedIn (on-demand) · freehire.me · Jina Reader · Clearbit · DNS · company sites | 240/h · 120/min · 15/min · 300/h · 600/h · 600/h app-wide |
 | Email | 450 a day app-wide (Gmail's free limit is ~500) and 30 per address per day |
 
 Database backstops apply even to direct API calls: 600 jobs per user per hour and 50 documents (30 uploads per hour) per user. Telegram sends are paced at about one message a second per chat and Discord at two a second, both waiting and retrying once on a 429. The worker pauses between searches and does at most 40 per run. Emails carry a `List-Unsubscribe` link.

@@ -6,8 +6,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { moveJob } from "@/app/(app)/dashboard/actions";
 import { FindJobsButton } from "./FindJobsButton";
+import { FreshTag } from "./FreshTag";
 import { PayFinePrint, PayTag } from "./PayTag";
 import type { PayView } from "@/lib/pay/parse";
+import { siteLabel } from "@/lib/reality";
+import type { Reality } from "@/lib/types";
 
 export type DeckJob = {
   id: string;
@@ -20,6 +23,7 @@ export type DeckJob = {
   date_posted: string | null;
   found_at: string;
   job_url: string;
+  reality: Reality | null;
   snippet: string | null;
   alertRole: string | null;
   pay: PayView | null;
@@ -377,7 +381,10 @@ function TriageModal({
                 <span className="stamp stamp-super" style={{ opacity: op.super }}>★ Super Apply</span>
                 <span className="stamp stamp-maybe" style={{ opacity: op.maybe }}>Maybe</span>
                 <div className="sc-top">
-                  <span className="tag">{top.site === "indeed" ? "Indeed" : top.site === "linkedin" ? "LinkedIn" : top.site ?? "Job"}</span>
+                  <span className="sc-tags">
+                    <span className="tag">{siteLabel(top.site)}</span>
+                    <FreshTag reality={top.reality} datePosted={top.date_posted} />
+                  </span>
                   <span className="small muted">found {ago(top.found_at)}</span>
                 </div>
                 <h3 className="sc-title">{top.title ?? "Untitled role"}</h3>

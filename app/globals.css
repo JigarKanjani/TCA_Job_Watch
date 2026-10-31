@@ -192,6 +192,13 @@ p { margin: 0; }
 .tag { display: inline-block; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 14%, transparent); padding: 3px 9px; border-radius: 999px; }
 .tag-muted { color: var(--muted); background: var(--surface-2); }
 .tag-warn { color: var(--signal); background: color-mix(in srgb, var(--signal-soft) 16%, transparent); }
+.fresh-tag { text-transform: none; letter-spacing: 0.02em; cursor: help; }
+.fresh-ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.fresh-muted { color: var(--muted); background: var(--surface-2); }
+.fresh-warn { color: var(--signal); background: color-mix(in srgb, var(--signal-soft) 16%, transparent); }
+.req-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.req-list li { display: flex; gap: 8px; align-items: baseline; font-size: 0.92rem; }
+.req-list .tag { flex: none; }
 
 .faq { display: grid; gap: 10px; max-width: 760px; }
 details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 4px 18px; }
@@ -650,6 +657,7 @@ kbd { font-family: var(--mono); font-size: 0.78em; padding: 1px 6px; border-radi
 .tint-super { background: var(--accent); }
 .tint-maybe { background: var(--signal-soft); }
 .sc-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.sc-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .sc-title { font-size: clamp(1.25rem, calc(2.6 * var(--vw)), 1.6rem); line-height: 1.15; }
 .sc-company { color: var(--muted); font-weight: 500; margin-top: -4px; }
 .sc-snippet { color: var(--muted); font-size: 0.9rem; line-height: 1.55; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
